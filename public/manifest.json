@@ -1,0 +1,18 @@
+{
+  "name": "MoVix Movilidad",
+  "short_name": "MoVix",
+  "description": "Tu app de Taxi y Mandaditos local.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F9FAFB",
+  "theme_color": "#6366F1",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
