@@ -11,7 +11,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, Mail, Lock } from "lucide-react";
 import { toast } from "sonner";
 
+// Force this page to be dynamic - no static generation
 export const dynamic = "force-dynamic";
+
 
 function LoginForm() {
     const router = useRouter();
