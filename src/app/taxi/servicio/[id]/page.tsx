@@ -229,20 +229,18 @@ export default function DriverServicePage() {
 
             {/* 1. MAP BACKGROUND */}
             <div className="absolute inset-0 z-0">
-                {request.origin_lat && request.origin_lng && (
-                    <DriverNavigationMap
-                        pickupLocation={{ lat: request.origin_lat, lng: request.origin_lng }}
-                        dropoffLocation={
-                            request.destination_lat && request.destination_lng
-                                ? { lat: request.destination_lat, lng: request.destination_lng }
-                                : undefined
-                        }
-                        driverLocation={currentPosition || undefined}
-                        trackingStep={request.tracking_step}
-                        className="w-full h-full"
-                        onRouteMetricsChange={setRouteMetrics}
-                    />
-                )}
+                <DriverNavigationMap
+                    pickupLocation={{ lat: request.origin_lat, lng: request.origin_lng }}
+                    dropoffLocation={
+                        request.destination_lat && request.destination_lng
+                            ? { lat: request.destination_lat, lng: request.destination_lng }
+                            : undefined
+                    }
+                    driverLocation={currentPosition || undefined}
+                    trackingStep={request.tracking_step}
+                    className="w-full h-full"
+                    onRouteMetricsChange={setRouteMetrics}
+                />
             </div>
 
             {/* 2. TOP BAR (Minimal) */}

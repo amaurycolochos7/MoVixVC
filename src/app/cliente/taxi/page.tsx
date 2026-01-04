@@ -9,7 +9,8 @@ import { useRequestWizard } from "@/hooks/useRequestWizard";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { reverseGeocode, ReverseGeocodeResult } from "@/lib/mapbox";
-import { MapPin, Navigation, Loader2, Building2, ShoppingBag, GraduationCap, Cross, Bus, Church, CheckCircle2, Car, X, DollarSign, User, Timer } from "lucide-react";
+import { LocationPickerMap } from "@/components/maps/location-picker-map";
+import { MapPin, Navigation, Loader2, Building2, ShoppingBag, GraduationCap, Cross, Bus, Church, CheckCircle2, Car, X, DollarSign, User, Timer, Map as MapIcon } from "lucide-react";
 
 // Popular destinations - customize for your city
 const POPULAR_PLACES = [
@@ -47,6 +48,10 @@ export default function TaxiWizardPage() {
     const [countdown, setCountdown] = useState(25);
     const [geocodedAddress, setGeocodedAddress] = useState<ReverseGeocodeResult | null>(null);
     const [isGeocodingAddress, setIsGeocodingAddress] = useState(false);
+
+    // Map picker state
+    const [showMapPicker, setShowMapPicker] = useState(false);
+    const [destinationCoords, setDestinationCoords] = useState<{ lat: number, lng: number } | null>(null);
 
     // Subscribe to offers when request is created
     useEffect(() => {
@@ -305,8 +310,8 @@ export default function TaxiWizardPage() {
             },
             destination: {
                 address: destinationText,
-                lat: 0,
-                lng: 0,
+                lat: destinationCoords?.lat || 0,
+                lng: destinationCoords?.lng || 0,
                 address_references: selectedPlace ? `Destino popular: ${selectedPlace}` : destinationText,
             },
             notes: "",
@@ -546,15 +551,27 @@ export default function TaxiWizardPage() {
                 </div>
 
                 {/* Destination text input */}
-                <Textarea
-                    placeholder='Escribe tu destino o selecciona uno popular...'
-                    value={destinationText}
-                    onChange={(e) => {
-                        setDestinationText(e.target.value);
-                        setSelectedPlace(null);
-                    }}
-                    rows={2}
-                />
+                <div className="relative">
+                    <Textarea
+                        placeholder='Escribe tu destino o selecciona uno popular...'
+                        value={destinationText}
+                        onChange={(e) => {
+                            setDestinationText(e.target.value);
+                            setSelectedPlace(null);
+                        }}
+                        rows={2}
+                        className="pr-10 pb-10" // Space for button
+                    />
+                    <Button
+                        size="sm"
+                        variant="ghost"
+                        className="absolute bottom-2 right-2 text-primary hover:bg-primary/10 h-8 text-xs"
+                        onClick={() => setShowMapPicker(true)}
+                    >
+                        <MapIcon className="w-4 h-4 mr-1.5" />
+                        Seleccionar en mapa
+                    </Button>
+                </div>
 
                 {/* Popular places grid */}
                 <div className="space-y-2">
@@ -620,6 +637,17 @@ export default function TaxiWizardPage() {
                     "Solicitar Taxi"
                 )}
             </Button>
+            {showMapPicker && (
+                <LocationPickerMap
+                    initialLocation={destinationCoords || locationState.coords}
+                    onConfirm={(loc) => {
+                        setDestinationText(loc.placeName);
+                        setDestinationCoords(loc.coords);
+                        setShowMapPicker(false);
+                    }}
+                    onCancel={() => setShowMapPicker(false)}
+                />
+            )}
         </div>
     );
 }

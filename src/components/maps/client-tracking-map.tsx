@@ -4,13 +4,23 @@ import { useEffect, useMemo, useRef } from "react";
 import { Loader2, Crosshair } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useAnimatedMarker, Coordinates } from "@/hooks/useAnimatedMarker";
-import { useFollowCamera, useMapInteractionDetector } from "@/hooks/useFollowCamera";
+import { useFollowCamera } from "@/hooks/useFollowCamera";
 import { useSmartRoute } from "@/hooks/useSmartRoute";
 import { useServiceDriverLocation } from "@/hooks/useServiceDriverLocation";
 import { Button } from "@/components/ui/button";
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || "";
 const MAP_STYLE = "mapbox://styles/mapbox/streets-v12";
+
+// Default center (CDMX) to prevent Null Island (0,0)
+const DEFAULT_CENTER = { lat: 19.4326, lng: -99.1332 };
+
+/**
+ * Helper to check if coords are valid (non-zero)
+ */
+function isValidCoords(coords?: Coordinates): boolean {
+    return !!coords && coords.lat !== 0 && coords.lng !== 0;
+}
 
 // Import assets
 import CarIcon from "@/assets/map/car-topdown.svg";
@@ -75,8 +85,8 @@ export function ClientTrackingMap({
 
     // Smart route calculation
     const smartRoute = useSmartRoute({
-        driverPosition: animatedDriver.position.lat !== 0 ? animatedDriver.position : null,
-        origin: pickupLocation,
+        driverPosition: isValidCoords(animatedDriver.position) ? animatedDriver.position : null,
+        origin: isValidCoords(pickupLocation) ? pickupLocation : DEFAULT_CENTER,
         destination: dropoffLocation,
         phase,
     });
@@ -84,14 +94,14 @@ export function ClientTrackingMap({
     // Camera follow mode
     const followCamera = useFollowCamera({
         mapRef,
-        targetPosition: animatedDriver.position.lat !== 0 ? animatedDriver.position : pickupLocation,
+        targetPosition: isValidCoords(animatedDriver.position) ? animatedDriver.position : (isValidCoords(pickupLocation) ? pickupLocation : DEFAULT_CENTER),
         targetBearing: animatedDriver.bearing,
         enabled: false, // Default off for client
         zoom: 15,
         pitch: 15, // Shallow pitch for client (0-20°)
     });
 
-    useMapInteractionDetector(mapRef, followCamera.disableFollow);
+    // useMapInteractionDetector(mapRef, followCamera.disableFollow);
 
     // Route layers
     const routeLayer = useMemo(() => ({
@@ -121,7 +131,8 @@ export function ClientTrackingMap({
             : [],
     }), [smartRoute.route]);
 
-    const displayPosition = animatedDriver.position.lat !== 0 ? animatedDriver.position : pickupLocation;
+    const displayPosition = isValidCoords(animatedDriver.position) ? animatedDriver.position : (isValidCoords(pickupLocation) ? pickupLocation : DEFAULT_CENTER);
+    const centerPosition = isValidCoords(pickupLocation) ? pickupLocation : DEFAULT_CENTER;
 
     return (
         <div className={`${className} relative`}>
@@ -129,8 +140,8 @@ export function ClientTrackingMap({
                 ref={mapRef}
                 mapboxAccessToken={MAPBOX_TOKEN}
                 initialViewState={{
-                    longitude: pickupLocation.lng,
-                    latitude: pickupLocation.lat,
+                    longitude: centerPosition.lng,
+                    latitude: centerPosition.lat,
                     zoom: 15,
                     pitch: 15,
                 }}
@@ -141,6 +152,9 @@ export function ClientTrackingMap({
                 touchZoomRotate={true}
                 doubleClickZoom={true}
                 dragPan={true}
+                onDragStart={() => followCamera.disableFollow()}
+                onTouchStart={() => followCamera.disableFollow()}
+                onWheel={() => followCamera.disableFollow()}
             >
                 {/* Route line */}
                 {smartRoute.route && (

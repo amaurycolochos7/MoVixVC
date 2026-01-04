@@ -11,6 +11,16 @@ import { Button } from "@/components/ui/button";
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || "";
 const MAP_STYLE = "mapbox://styles/mapbox/navigation-day-v1";
 
+// Default center (CDMX) to prevent Null Island (0,0)
+const DEFAULT_CENTER = { lat: 19.4326, lng: -99.1332 };
+
+/**
+ * Helper to check if coords are valid (non-zero)
+ */
+function isValidCoords(coords?: Coordinates | null): boolean {
+    return !!coords && coords.lat !== 0 && coords.lng !== 0;
+}
+
 // Import assets
 import CarIcon from "@/assets/map/car-topdown.svg";
 import PickupIcon from "@/assets/map/pin-pickup.svg";
@@ -83,9 +93,9 @@ export function DriverNavigationMap({
 
     // Smart route calculation
     const smartRoute = useSmartRoute({
-        driverPosition: animatedDriver.position.lat !== 0 ? animatedDriver.position : driverLocation || null,
-        origin: pickupLocation,
-        destination: dropoffLocation,
+        driverPosition: isValidCoords(animatedDriver.position) ? animatedDriver.position : (isValidCoords(driverLocation) ? driverLocation : null),
+        origin: isValidCoords(pickupLocation) ? pickupLocation : DEFAULT_CENTER,
+        destination: dropoffLocation || undefined,
         phase: phase === "trip" ? "trip" : "pickup",
     });
 
@@ -108,11 +118,12 @@ export function DriverNavigationMap({
     const hasDriverLocation = (animatedDriver.position.lat !== 0) || (driverLocation && driverLocation.lat !== 0);
 
     const cameraTarget = useMemo(() => {
-        if (animatedDriver.position.lat !== 0) return animatedDriver.position;
-        if (driverLocation && driverLocation.lat !== 0) return driverLocation;
+        if (isValidCoords(animatedDriver.position)) return animatedDriver.position;
+        if (isValidCoords(driverLocation)) return driverLocation!;
 
         // Fallback: Target destination
-        return phase === "trip" && dropoffLocation ? dropoffLocation : pickupLocation;
+        const target = phase === "trip" && dropoffLocation ? dropoffLocation : pickupLocation;
+        return isValidCoords(target) ? target : DEFAULT_CENTER;
     }, [animatedDriver.position, driverLocation, phase, pickupLocation, dropoffLocation]);
 
     // Camera follow mode
@@ -210,8 +221,8 @@ export function DriverNavigationMap({
                 ref={mapRef}
                 mapboxAccessToken={MAPBOX_TOKEN}
                 initialViewState={{
-                    longitude: pickupLocation.lng,
-                    latitude: pickupLocation.lat,
+                    longitude: cameraTarget.lng,
+                    latitude: cameraTarget.lat,
                     zoom: 15,
                     pitch: 35,
                 }}

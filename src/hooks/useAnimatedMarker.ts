@@ -9,8 +9,8 @@ export const TRACKING_CONFIG = {
     ANIM_FPS: 60,
 
     // GPS Filtering
-    MAX_ACCURACY_M: 40, // Reject points with accuracy > 40m
-    MAX_SPEED_KMH: 140, // Reject impossible speeds (teleporting)
+    MAX_ACCURACY_M: process.env.NODE_ENV === "development" ? 5000000 : 40, // Max 40m in prod, 5000km in dev
+    MAX_SPEED_KMH: process.env.NODE_ENV === "development" ? 2000 : 140, // Relax speed check in dev
     MIN_MOVEMENT_M: 5, // Minimum movement to update bearing
 
     // Route recalculation
