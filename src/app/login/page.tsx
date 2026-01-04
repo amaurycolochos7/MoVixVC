@@ -1,7 +1,7 @@
 "use client";
 
-import { Suspense, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -11,19 +11,21 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, Mail, Lock } from "lucide-react";
 import { toast } from "sonner";
 
-// Force this page to be dynamic - no static generation
-export const dynamic = "force-dynamic";
-
-
-function LoginForm() {
+export default function LoginPage() {
     const router = useRouter();
-    const searchParams = useSearchParams();
-    const roleParam = searchParams.get("role") || "cliente";
     const supabase = createClient();
 
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [loading, setLoading] = useState(false);
+    const [roleParam, setRoleParam] = useState("cliente");
+
+    // Get role from URL params client-side to avoid useSearchParams pre-rendering issues
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const role = params.get("role") || "cliente";
+        setRoleParam(role);
+    }, []);
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -138,17 +140,5 @@ function LoginForm() {
                 </CardContent>
             </Card>
         </div>
-    );
-}
-
-export default function LoginPage() {
-    return (
-        <Suspense fallback={
-            <div className="min-h-screen flex items-center justify-center">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-        }>
-            <LoginForm />
-        </Suspense>
     );
 }
