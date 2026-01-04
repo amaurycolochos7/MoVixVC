@@ -139,3 +139,49 @@ export async function reverseGeocode(
     }
 }
 
+export interface ForwardGeocodeResult {
+    coords: Coordinates;
+    placeName: string;
+    address: string;
+}
+
+/**
+ * Forward geocode: Convert an address/query string into GPS coordinates.
+ * Uses Mapbox Geocoding API for address search.
+ */
+export async function forwardGeocode(
+    query: string
+): Promise<ForwardGeocodeResult[]> {
+    if (!MAPBOX_TOKEN) {
+        console.error("Mapbox token is missing for forward geocoding");
+        return [];
+    }
+
+    if (!query || query.trim().length < 3) {
+        return [];
+    }
+
+    const encodedQuery = encodeURIComponent(query);
+    const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodedQuery}.json?access_token=${MAPBOX_TOKEN}&language=es&country=MX&limit=5`;
+
+    try {
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (data.features && data.features.length > 0) {
+            return data.features.map((feature: any) => ({
+                coords: {
+                    lat: feature.center[1],
+                    lng: feature.center[0],
+                },
+                placeName: feature.text,
+                address: feature.place_name,
+            }));
+        }
+        return [];
+    } catch (error) {
+        console.error("Error in forward geocoding:", error);
+        return [];
+    }
+}
+

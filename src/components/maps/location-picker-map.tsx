@@ -2,9 +2,10 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import dynamic from "next/dynamic";
-import { Loader2, MapPin, ArrowLeft, Navigation, Check } from "lucide-react";
+import { Loader2, MapPin, ArrowLeft, Navigation, Check, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Coordinates, reverseGeocode } from "@/lib/mapbox";
+import { Input } from "@/components/ui/input";
+import { Coordinates, reverseGeocode, forwardGeocode, ForwardGeocodeResult } from "@/lib/mapbox";
 
 const Map = dynamic(() => import("react-map-gl").then((mod) => mod.Map), {
     ssr: false,
@@ -34,6 +35,13 @@ export function LocationPickerMap({ initialLocation, onConfirm, onCancel }: Loca
     const [isLoadingAddress, setIsLoadingAddress] = useState(false);
     const [address, setAddress] = useState<string>("");
     const [placeName, setPlaceName] = useState<string>("Ubicación seleccionada");
+
+    // Search states
+    const [searchQuery, setSearchQuery] = useState("");
+    const [searchResults, setSearchResults] = useState<ForwardGeocodeResult[]>([]);
+    const [isSearching, setIsSearching] = useState(false);
+    const [showSearchResults, setShowSearchResults] = useState(false);
+    const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     // Fetch address when map stops moving
     const handleMoveEnd = useCallback(async (evt: any) => {
@@ -82,6 +90,46 @@ export function LocationPickerMap({ initialLocation, onConfirm, onCancel }: Loca
         }
     };
 
+    // Handle search with debounce
+    useEffect(() => {
+        if (searchTimeoutRef.current) {
+            clearTimeout(searchTimeoutRef.current);
+        }
+
+        if (searchQuery.trim().length < 3) {
+            setSearchResults([]);
+            setShowSearchResults(false);
+            return;
+        }
+
+        setIsSearching(true);
+        searchTimeoutRef.current = setTimeout(async () => {
+            const results = await forwardGeocode(searchQuery);
+            setSearchResults(results);
+            setShowSearchResults(results.length > 0);
+            setIsSearching(false);
+        }, 500); // 500ms debounce
+
+        return () => {
+            if (searchTimeoutRef.current) {
+                clearTimeout(searchTimeoutRef.current);
+            }
+        };
+    }, [searchQuery]);
+
+    // Handle selecting a search result
+    const handleSelectSearchResult = (result: ForwardGeocodeResult) => {
+        if (mapRef.current) {
+            mapRef.current.flyTo({
+                center: [result.coords.lng, result.coords.lat],
+                zoom: 16
+            });
+        }
+        setSearchQuery("");
+        setShowSearchResults(false);
+        setSearchResults([]);
+    };
+
     return (
         <div className="fixed inset-0 z-[100] bg-white flex flex-col h-[100dvh]">
             {/* Header / Back Button - Floating */}
@@ -94,6 +142,61 @@ export function LocationPickerMap({ initialLocation, onConfirm, onCancel }: Loca
                 >
                     <ArrowLeft className="w-5 h-5" />
                 </Button>
+            </div>
+
+            {/* Search Bar - Floating */}
+            <div className="absolute top-4 left-16 right-4 z-10">
+                <div className="relative">
+                    <div className="relative flex items-center bg-white rounded-full shadow-lg border border-gray-200">
+                        <Search className="w-5 h-5 text-gray-400 absolute left-4" />
+                        <Input
+                            type="text"
+                            placeholder="Buscar dirección..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="pl-12 pr-10 h-10 border-0 rounded-full focus-visible:ring-0 focus-visible:ring-offset-0"
+                        />
+                        {searchQuery && (
+                            <button
+                                onClick={() => {
+                                    setSearchQuery("");
+                                    setShowSearchResults(false);
+                                }}
+                                className="absolute right-3 p-1 hover:bg-gray-100 rounded-full transition"
+                            >
+                                <X className="w-4 h-4 text-gray-500" />
+                            </button>
+                        )}
+                        {isSearching && (
+                            <div className="absolute right-3">
+                                <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Search Results Dropdown */}
+                    {showSearchResults && searchResults.length > 0 && (
+                        <div className="absolute top-12 left-0 right-0 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden max-h-72 overflow-y-auto">
+                            {searchResults.map((result, idx) => (
+                                <button
+                                    key={idx}
+                                    onClick={() => handleSelectSearchResult(result)}
+                                    className="w-full px-4 py-3 flex items-start gap-3 hover:bg-gray-50 transition text-left border-b last:border-b-0"
+                                >
+                                    <MapPin className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+                                    <div className="flex-1 min-w-0">
+                                        <p className="font-medium text-gray-900 truncate">
+                                            {result.placeName}
+                                        </p>
+                                        <p className="text-sm text-gray-500 truncate">
+                                            {result.address}
+                                        </p>
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
             </div>
 
             {/* Map Container */}
