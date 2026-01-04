@@ -1,11 +1,8 @@
-import type { Metadata } from "next";
+"use client";
+
 import { TaxiBottomNav } from "@/components/navigation/taxi-bottom-nav";
-
-export const metadata: Metadata = {
-    title: "MoVix - Taxi",
-};
-
-export const dynamic = 'force-dynamic';
+import { RoleGuard } from "@/components/auth/role-guard";
+import "mapbox-gl/dist/mapbox-gl.css";
 
 export default function TaxiLayout({
     children,
@@ -13,13 +10,15 @@ export default function TaxiLayout({
     children: React.ReactNode;
 }>) {
     return (
-        <>
+        <RoleGuard allowedRoles={["taxi"]}>
             <main className="min-h-screen pb-24 pt-4 px-4 bg-surface-alt">
                 <div className="mx-auto max-w-md">
                     {children}
                 </div>
             </main>
             <TaxiBottomNav />
-        </>
+        </RoleGuard>
     );
 }
+
+

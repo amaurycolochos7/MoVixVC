@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useRequestWizard } from "@/hooks/useRequestWizard";
 import { AddressSelector, AddressData } from "./address-selector";
+import { useGeolocation } from "@/hooks/useGeolocation";
 
 interface Step1Props {
     wizard: ReturnType<typeof useRequestWizard>;
@@ -12,6 +13,7 @@ interface Step1Props {
 export function Step1Locations({ wizard }: Step1Props) {
     const { nextStep, setOrigin, setDestination, state } = wizard;
     const { serviceType } = state;
+    const location = useGeolocation(); // Get real GPS location
 
     const [originData, setOriginData] = useState<AddressData | null>(null);
     const [destData, setDestData] = useState<AddressData | null>(null);
@@ -20,20 +22,25 @@ export function Step1Locations({ wizard }: Step1Props) {
         if (!originData) return;
         if (serviceType === 'taxi' && !destData) return;
 
-        // Force typed cast for now as hook expects lat/lng
+        // Use real GPS coordinates from device
+        const realLat = location.coordinates?.lat || 0;
+        const realLng = location.coordinates?.lng || 0;
+
+        // DEBUG: Log GPS coordinates
+        console.log("📍 [Step1] GPS Location from hook:", location);
+        console.log("📍 [Step1] realLat:", realLat, "realLng:", realLng);
+        console.log("📍 [Step1] originData:", originData);
+
         setOrigin({
             address: `${originData.full_address}${originData.neighborhood ? `, ${originData.neighborhood}` : ''}`,
-            lat: 0,
-            lng: 0,
-            // We'll append extra data to the object even if TS complains slightly or if we cast as any
-            // Ideally we update the hook types, but for MVP speed this works as JS is flexible at runtime.
-            // We will stash "references" in the notes or a separate field later in Step 2 if needed, 
-            // but the request object in DB now has columns for them.
-            // We need to pass this rich data up.
+            lat: realLat,
+            lng: realLng,
             ...originData
         } as any);
 
         if (serviceType === 'taxi' && destData) {
+            // For destination, we don't have GPS - it's just text address
+            // Keeping 0,0 for destination is fine since we use text address
             setDestination({
                 address: `${destData.full_address}${destData.neighborhood ? `, ${destData.neighborhood}` : ''}`,
                 lat: 0,
@@ -44,6 +51,7 @@ export function Step1Locations({ wizard }: Step1Props) {
 
         nextStep();
     };
+
 
     return (
         <div className="space-y-6 pt-4 h-full flex flex-col">

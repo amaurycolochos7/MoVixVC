@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { Toaster } from "sonner";
+import { AuthProvider } from "@/contexts/auth-context";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -26,7 +27,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
-  userScalable: false, // App-like behavior
+  userScalable: false,
   viewportFit: "cover",
 };
 
@@ -38,10 +39,14 @@ export default function RootLayout({
   return (
     <html lang="es" className={cn("antialiased", inter.variable)}>
       <body className="min-h-screen bg-surface-alt text-text-primary font-sans">
-        {children}
+        <AuthProvider>
+          {children}
+        </AuthProvider>
         <Toaster richColors position="bottom-center" duration={3000} />
       </body>
     </html>
   );
 }
+
+
 

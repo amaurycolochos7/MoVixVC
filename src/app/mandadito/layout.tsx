@@ -1,11 +1,6 @@
-import type { Metadata } from "next";
+"use client";
+
 import { MandaditoBottomNav } from "@/components/navigation/mandadito-bottom-nav";
-
-export const metadata: Metadata = {
-    title: "MoVix - Mandadito",
-};
-
-export const dynamic = 'force-dynamic';
 
 export default function MandaditoLayout({
     children,
@@ -23,3 +18,5 @@ export default function MandaditoLayout({
         </>
     );
 }
+
+

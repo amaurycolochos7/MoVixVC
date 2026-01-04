@@ -1,12 +1,8 @@
-import type { Metadata } from "next";
+"use client";
+
 import { BottomNav } from "@/components/navigation/bottom-nav";
+import { RoleGuard } from "@/components/auth/role-guard";
 import { Home, Clock, History, User } from "lucide-react";
-
-export const metadata: Metadata = {
-    title: "MoVix - Cliente",
-};
-
-export const dynamic = 'force-dynamic';
 
 const navItems = [
     { label: "Inicio", href: "/cliente", icon: Home },
@@ -21,13 +17,15 @@ export default function ClienteLayout({
     children: React.ReactNode;
 }>) {
     return (
-        <>
+        <RoleGuard allowedRoles={["cliente"]}>
             <main className="min-h-screen pb-20 pt-4 px-4 bg-surface-alt">
                 <div className="mx-auto max-w-md">
                     {children}
                 </div>
             </main>
             <BottomNav items={navItems} />
-        </>
+        </RoleGuard>
     );
 }
+
+

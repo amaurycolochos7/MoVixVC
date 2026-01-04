@@ -1,0 +1,89 @@
+import { createServerClient, type CookieOptions } from '@supabase/ssr'
+import { NextResponse, type NextRequest } from 'next/server'
+
+export async function middleware(request: NextRequest) {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+    // If Supabase env vars are not set, skip middleware
+    if (!supabaseUrl || !supabaseAnonKey) {
+        console.warn('[Middleware] Supabase env vars not set, skipping auth check')
+        return NextResponse.next()
+    }
+
+    let response = NextResponse.next({
+        request: {
+            headers: request.headers,
+        },
+    })
+
+    const supabase = createServerClient(
+        supabaseUrl,
+        supabaseAnonKey,
+        {
+            cookies: {
+                get(name: string) {
+                    return request.cookies.get(name)?.value
+                },
+                set(name: string, value: string, options: CookieOptions) {
+                    request.cookies.set({ name, value, ...options })
+                    response = NextResponse.next({
+                        request: { headers: request.headers },
+                    })
+                    response.cookies.set({ name, value, ...options })
+                },
+                remove(name: string, options: CookieOptions) {
+                    request.cookies.set({ name, value: '', ...options })
+                    response = NextResponse.next({
+                        request: { headers: request.headers },
+                    })
+                    response.cookies.set({ name, value: '', ...options })
+                },
+            },
+        }
+    )
+
+    const { data: { session } } = await supabase.auth.getSession()
+
+    const pathname = request.nextUrl.pathname
+
+    // Public routes that don't require auth
+    const publicRoutes = ['/', '/login', '/registro', '/~offline']
+    const isPublicRoute = publicRoutes.some(route =>
+        pathname === route || pathname.startsWith('/~offline')
+    )
+
+    // If no session and trying to access protected route, redirect to home (role selection)
+    if (!session && !isPublicRoute) {
+        const redirectUrl = new URL('/', request.url)
+        redirectUrl.searchParams.set('redirect', pathname)
+        return NextResponse.redirect(redirectUrl)
+    }
+
+    // If has session and on login/registro, redirect to appropriate dashboard
+    if (session && (pathname === '/login' || pathname === '/registro')) {
+        // Fetch user role
+        const { data: profile } = await supabase
+            .from('users')
+            .select('role')
+            .eq('id', session.user.id)
+            .single()
+
+        const role = profile?.role || 'cliente'
+        const dashboardMap: Record<string, string> = {
+            admin: '/admin',
+            taxi: '/taxi',
+            mandadito: '/mandadito',
+            cliente: '/cliente',
+        }
+        return NextResponse.redirect(new URL(dashboardMap[role], request.url))
+    }
+
+    return response
+}
+
+export const config = {
+    matcher: [
+        '/((?!_next/static|_next/image|favicon.ico|manifest.json|sw.js|workbox-.*\\.js|.*\\.svg|.*\\.png|.*\\.jpg|.*\\.webp|api).*)',
+    ],
+}

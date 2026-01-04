@@ -51,45 +51,62 @@ export const useRequestWizard = () => {
 
     const [requestId, setRequestId] = useState<string | null>(null);
 
-    const submitRequest = async () => {
+    // Accept data directly to avoid async state issues
+    const submitRequest = async (directData?: Partial<RequestState>) => {
         setIsLoading(true);
         setError(null);
+
+        // Use provided data or fall back to current state
+        const data = directData ? { ...state, ...directData } : state;
 
         try {
             const user = (await supabase.auth.getUser()).data.user;
             if (!user) throw new Error("No autenticado");
 
-            const { data, error: insertError } = await supabase
+            // DEBUG: Log what we're about to insert
+            console.log("📍 [useRequestWizard] About to insert:");
+            console.log("   origin_lat:", data.origin.lat);
+            console.log("   origin_lng:", data.origin.lng);
+            console.log("   Full origin data:", data.origin);
+
+            const { data: result, error: insertError } = await supabase
                 .from("service_requests")
                 .insert({
                     client_id: user.id,
-                    service_type: state.serviceType,
+                    service_type: data.serviceType,
                     status: "pending",
 
-                    origin_address: state.origin.address,
-                    origin_neighborhood: state.origin.neighborhood,
-                    origin_references: state.origin.address_references,
-                    contact_phone: state.origin.contact_phone,
-                    origin_lat: 0, origin_lng: 0,
+                    origin_address: data.origin.address,
+                    origin_neighborhood: data.origin.neighborhood,
+                    origin_references: data.origin.address_references,
+                    contact_phone: data.origin.contact_phone,
+                    origin_lat: data.origin.lat || 0,
+                    origin_lng: data.origin.lng || 0,
 
-                    destination_address: state.destination?.address,
-                    destination_neighborhood: state.destination?.neighborhood,
-                    destination_references: state.destination?.address_references,
-                    destination_lat: 0, destination_lng: 0,
+                    destination_address: data.destination?.address,
+                    destination_neighborhood: data.destination?.neighborhood,
+                    destination_references: data.destination?.address_references,
+                    destination_lat: data.destination?.lat || 0,
+                    destination_lng: data.destination?.lng || 0,
 
-                    notes: state.notes,
-                    estimated_price: parseFloat(state.offerPrice || "0"),
-                    request_expires_at: new Date(Date.now() + 10 * 60000).toISOString(),
+                    notes: data.notes,
+                    // Base fares: Taxi $33, Mandadito $22
+                    estimated_price: data.offerPrice
+                        ? parseFloat(data.offerPrice)
+                        : (data.serviceType === "taxi" ? 33 : 22),
+                    request_expires_at: new Date(Date.now() + 25 * 1000).toISOString(), // 25 seconds
                 })
                 .select()
                 .single();
 
+            console.log("📍 [useRequestWizard] Insert result:", result);
+
             if (insertError) throw insertError;
 
-            setRequestId(data.id);
+            setRequestId(result.id);
             setStep(3);
             toast.success("Solicitud creada");
-            return data;
+            return result;
 
         } catch (err: any) {
             const { message } = parseSupabaseError(err);

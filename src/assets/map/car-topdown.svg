@@ -1,0 +1,31 @@
+<svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Car body -->
+  <rect x="10" y="8" width="16" height="20" rx="3" fill="#3B82F6"/>
+  <rect x="11" y="9" width="14" height="18" rx="2" fill="#60A5FA"/>
+  
+  <!-- Windshield -->
+  <rect x="12" y="12" width="12" height="6" rx="1.5" fill="#1E3A8A" opacity="0.4"/>
+  
+  <!-- Roof -->
+  <rect x="11" y="9" width="14" height="5" rx="2" fill="#2563EB"/>
+  
+  <!-- Headlights -->
+  <circle cx="13" cy="7" r="1.5" fill="#FCD34D"/>
+  <circle cx="23" cy="7" r="1.5" fill="#FCD34D"/>
+  
+  <!-- Side mirrors -->
+  <rect x="8" y="14" width="2" height="3" rx="1" fill="#1E40AF"/>
+  <rect x="26" y="14" width="2" height="3" rx="1" fill="#1E40AF"/>
+  
+  <!-- Wheels -->
+  <circle cx="12" cy="10" r="2.5" fill="#1F2937"/>
+  <circle cx="24" cy="10" r="2.5" fill="#1F2937"/>
+  <circle cx="12" cy="26" r="2.5" fill="#1F2937"/>
+  <circle cx="24" cy="26" r="2.5" fill="#1F2937"/>
+  
+  <!-- Wheel inner -->
+  <circle cx="12" cy="10" r="1" fill="#6B7280"/>
+  <circle cx="24" cy="10" r="1" fill="#6B7280"/>
+  <circle cx="12" cy="26" r="1" fill="#6B7280"/>
+  <circle cx="24" cy="26" r="1" fill="#6B7280"/>
+</svg>

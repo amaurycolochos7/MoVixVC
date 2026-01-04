@@ -38,12 +38,14 @@ export function Step2Details({ wizard }: Step2DetailsProps) {
                 origin_neighborhood: state.origin.neighborhood,
                 origin_references: state.origin.address_references,
                 contact_phone: state.origin.contact_phone,
-                origin_lat: 0, origin_lng: 0,
+                origin_lat: state.origin.lat || 0,
+                origin_lng: state.origin.lng || 0,
 
                 destination_address: state.destination?.address,
                 destination_neighborhood: state.destination?.neighborhood,
                 destination_references: state.destination?.address_references,
-                destination_lat: 0, destination_lng: 0,
+                destination_lat: state.destination?.lat || 0,
+                destination_lng: state.destination?.lng || 0,
 
                 notes: notes,
                 estimated_price: parseFloat(price),
