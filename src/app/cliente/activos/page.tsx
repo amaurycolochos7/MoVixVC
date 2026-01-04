@@ -40,7 +40,7 @@ export default function ClienteActivosPage() {
                 .from("service_requests")
                 .select("*")
                 .eq("client_id", user.id)
-                .in("status", ["pending", "negotiating", "assigned", "in_progress"])
+                .in("status", ["assigned", "in_progress"])
                 .order("created_at", { ascending: false });
 
             if (fetchError) throw fetchError;
@@ -76,8 +76,6 @@ export default function ClienteActivosPage() {
 
     const getStatusBadge = (status: string) => {
         const badges: Record<string, { color: string; text: string }> = {
-            pending: { color: "bg-yellow-100 text-yellow-800", text: "Buscando conductor" },
-            negotiating: { color: "bg-orange-100 text-orange-800", text: "Negociando precio" },
             assigned: { color: "bg-blue-100 text-blue-800", text: "Conductor asignado" },
             in_progress: { color: "bg-green-100 text-green-800", text: "En curso" },
         };

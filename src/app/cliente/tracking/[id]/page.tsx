@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { Loader2, Car, MapPin, CheckCircle, Navigation } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/contexts/auth-context";
 import { toast } from "sonner";
@@ -62,6 +62,61 @@ export default function ClienteTrackingPage() {
     // For now, we'll try to get it from the map component if possible, or just default it
     // In a real refactor, the map component should expose these metrics via a callback
     const [routeMetrics, setRouteMetrics] = useState({ eta: 5, distance: 1.2 });
+
+    // Track previous status for change detection
+    const prevStatusRef = useRef<string | undefined>();
+    const prevTrackingStepRef = useRef<string | undefined>();
+    const [isStatusChanging, setIsStatusChanging] = useState(false);
+
+    // Show animated toast when status changes
+    const showStatusChangeToast = (newStatus: string, newStep?: string) => {
+        const status = newStep || newStatus;
+
+        switch (status) {
+            case "assigned":
+                toast.success("Conductor asignado", {
+                    description: "Tu conductor va en camino",
+                    icon: <Car className="w-5 h-5" />,
+                    duration: 4000,
+                });
+                break;
+            case "on_the_way":
+                toast.info("Conductor en camino", {
+                    description: "Llegará pronto",
+                    icon: <Navigation className="w-5 h-5 animate-pulse" />,
+                    duration: 4000,
+                });
+                break;
+            case "nearby":
+                toast.warning("Conductor muy cerca", {
+                    description: "Está a punto de llegar",
+                    icon: <MapPin className="w-5 h-5 animate-bounce" />,
+                    duration: 5000,
+                });
+                break;
+            case "arrived":
+                toast.success("¡El conductor ha llegado!", {
+                    description: "Ya está en el punto de recogida",
+                    icon: <CheckCircle className="w-5 h-5" />,
+                    duration: 5000,
+                });
+                break;
+            case "picked_up":
+                toast.info("Viaje iniciado", {
+                    description: "Disfruta tu viaje",
+                    icon: <Car className="w-5 h-5" />,
+                    duration: 4000,
+                });
+                break;
+            case "in_transit":
+                toast.info("Llegando a tu destino", {
+                    description: "Estás cerca de tu destino",
+                    icon: <MapPin className="w-5 h-5" />,
+                    duration: 4000,
+                });
+                break;
+        }
+    };
 
     const fetchRequest = async () => {
         try {
@@ -138,6 +193,22 @@ export default function ClienteTrackingPage() {
             supabase.removeChannel(channel);
         };
     }, [requestId]);
+
+    // Detect status changes and show toasts
+    useEffect(() => {
+        if (request && prevStatusRef.current && prevStatusRef.current !== request.status) {
+            showStatusChangeToast(request.status, request.tracking_step);
+            setIsStatusChanging(true);
+            setTimeout(() => setIsStatusChanging(false), 1000);
+        }
+        if (request && prevTrackingStepRef.current && prevTrackingStepRef.current !== request.tracking_step) {
+            showStatusChangeToast(request.status, request.tracking_step);
+            setIsStatusChanging(true);
+            setTimeout(() => setIsStatusChanging(false), 1000);
+        }
+        prevStatusRef.current = request?.status;
+        prevTrackingStepRef.current = request?.tracking_step;
+    }, [request?.status, request?.tracking_step]);
 
     if (loading) {
         return (

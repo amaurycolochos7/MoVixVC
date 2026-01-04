@@ -137,6 +137,10 @@ export function ClientTrackingMap({
                 style={{ width: "100%", height: "100%" }}
                 mapStyle={MAP_STYLE}
                 attributionControl={false}
+                scrollZoom={true}
+                touchZoomRotate={true}
+                doubleClickZoom={true}
+                dragPan={true}
             >
                 {/* Route line */}
                 {smartRoute.route && (
@@ -187,8 +191,8 @@ export function ClientTrackingMap({
                 <Button
                     size="icon"
                     className={`rounded-full w-10 h-10 shadow-md transition-all ${followCamera.isFollowing
-                            ? "bg-blue-600 hover:bg-blue-700 text-white"
-                            : "bg-white hover:bg-gray-50 text-gray-700 border border-gray-200"
+                        ? "bg-blue-600 hover:bg-blue-700 text-white"
+                        : "bg-white hover:bg-gray-50 text-gray-700 border border-gray-200"
                         }`}
                     onClick={followCamera.toggleFollow}
                 >

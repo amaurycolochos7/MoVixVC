@@ -219,6 +219,10 @@ export function DriverNavigationMap({
                 mapStyle={MAP_STYLE}
                 attributionControl={false}
                 logoPosition="bottom-left"
+                scrollZoom={true}
+                touchZoomRotate={true}
+                doubleClickZoom={true}
+                dragPan={true}
             >
                 {/* Route line */}
                 {smartRoute.route && (

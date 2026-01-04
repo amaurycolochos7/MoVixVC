@@ -20,6 +20,7 @@ interface RideBottomSheetProps {
     driverPlate?: string;
     driverCar?: string;
     price?: number;
+    isStatusChanging?: boolean; // NEW: Trigger animation on status change
     onCancel?: () => void;
     onCall?: () => void;
     onMessage?: () => void;
@@ -36,6 +37,7 @@ export function RideBottomSheet({
     driverPlate = "ABC-123",
     driverCar = "Nissan Versa",
     price,
+    isStatusChanging = false,
     onCancel,
     onCall,
     onMessage,
@@ -97,7 +99,8 @@ export function RideBottomSheet({
                             <h2 className="text-2xl font-bold text-gray-900 leading-tight">
                                 {eta} min
                             </h2>
-                            <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-bold rounded-full uppercase tracking-wide">
+                            <span className={`px-2 py-0.5 bg-green-100 text-green-700 text-xs font-bold rounded-full uppercase tracking-wide transition-all duration-300 ${isStatusChanging ? 'animate-bounce scale-110' : 'scale-100'
+                                }`}>
                                 {getStatusText()}
                             </span>
                         </div>
