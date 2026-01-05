@@ -229,32 +229,32 @@ export default function AdminUsuariosPage() {
                                     <User className="w-6 h-6 text-primary" />
                                 </div>
                                 <div>
-                                    <h3 className="text-xl font-bold">{viewModal.full_name}</h3>
-                                    <p className="text-sm text-muted-foreground">{viewModal.email}</p>
+                                    <h3 className="text-xl font-bold text-gray-900 dark:text-white">{viewModal.full_name}</h3>
+                                    <p className="text-sm text-gray-500 dark:text-gray-300">{viewModal.email}</p>
                                 </div>
                             </div>
 
                             <div className="space-y-4">
                                 <div className="grid grid-cols-2 gap-4 text-sm">
                                     <div>
-                                        <label className="text-xs text-muted-foreground">ID</label>
-                                        <p className="font-mono">{viewModal.id}</p>
+                                        <label className="text-xs text-gray-500 dark:text-gray-400">ID</label>
+                                        <p className="font-mono text-gray-900 dark:text-gray-100">{viewModal.id}</p>
                                     </div>
                                     <div>
-                                        <label className="text-xs text-muted-foreground">Rol</label>
+                                        <label className="text-xs text-gray-500 dark:text-gray-400">Rol</label>
                                         <div className="mt-1">{getRoleBadge(viewModal.role)}</div>
                                     </div>
                                     <div>
-                                        <label className="text-xs text-muted-foreground">Teléfono</label>
-                                        <p>{viewModal.phone || "No registrado"}</p>
+                                        <label className="text-xs text-gray-500 dark:text-gray-400">Teléfono</label>
+                                        <p className="text-gray-900 dark:text-gray-100">{viewModal.phone || "No registrado"}</p>
                                     </div>
                                     <div>
-                                        <label className="text-xs text-muted-foreground">Fecha Registro</label>
-                                        <p>{format(new Date(viewModal.created_at), "PPP p", { locale: es })}</p>
+                                        <label className="text-xs text-gray-500 dark:text-gray-400">Fecha Registro</label>
+                                        <p className="text-gray-900 dark:text-gray-100">{format(new Date(viewModal.created_at), "PPP p", { locale: es })}</p>
                                     </div>
                                     <div>
-                                        <label className="text-xs text-muted-foreground">Estado KYC</label>
-                                        <p className="capitalize">{viewModal.kyc_status?.replace('_', ' ') || "N/A"}</p>
+                                        <label className="text-xs text-gray-500 dark:text-gray-400">Estado KYC</label>
+                                        <p className="capitalize text-gray-900 dark:text-gray-100">{viewModal.kyc_status?.replace('_', ' ') || "N/A"}</p>
                                     </div>
                                 </div>
                             </div>
