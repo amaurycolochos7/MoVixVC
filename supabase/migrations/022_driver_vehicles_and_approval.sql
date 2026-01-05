@@ -45,7 +45,15 @@ CREATE TRIGGER trigger_driver_vehicles_updated_at
 -- UPDATE CONSTRAINT: Phone required for drivers
 -- ============================================================
 
--- Add constraint to ensure drivers have phone number
+-- First, update existing drivers without phone to have a placeholder
+-- This prevents the constraint from failing on existing data
+UPDATE users 
+SET phone = 'SIN_TELEFONO_' || id::text
+WHERE role IN ('taxi', 'mandadito') 
+  AND phone IS NULL;
+
+-- Now add constraint to ensure NEW drivers must have phone
+-- Existing drivers with placeholder will need to update their phone later
 ALTER TABLE users ADD CONSTRAINT users_driver_phone_required CHECK (
     (role IN ('cliente', 'admin')) OR
     (role IN ('taxi', 'mandadito') AND phone IS NOT NULL)
