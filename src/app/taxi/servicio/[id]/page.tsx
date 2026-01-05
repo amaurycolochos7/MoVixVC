@@ -29,11 +29,11 @@ import { cn } from "@/lib/utils";
 
 // Tracking steps configuration
 const TRACKING_STEPS = [
-    { id: "accepted", label: "Aceptado", actionLabel: "Iniciar viaje", icon: CheckCircle },
-    { id: "on_the_way", label: "En camino", actionLabel: "Notificar llegada", icon: Car },
-    { id: "nearby", label: "Cerca", actionLabel: "Notificar llegada", icon: MapPin }, // Auto-triggered usually
-    { id: "arrived", label: "Llegó", actionLabel: "Pasajero a bordo", icon: MapPin },
-    { id: "picked_up", label: "En viaje", actionLabel: "Llegar a destino", icon: User },
+    { id: "accepted", label: "Aceptado", actionLabel: "Salir hacia el cliente", icon: CheckCircle },
+    { id: "on_the_way", label: "En camino", actionLabel: "Ya llegué al cliente", icon: Car },
+    { id: "nearby", label: "Cerca", actionLabel: "Confirmar llegada", icon: MapPin },
+    { id: "arrived", label: "Llegó", actionLabel: "Cliente a bordo", icon: MapPin },
+    { id: "picked_up", label: "En viaje", actionLabel: "Llegando al destino", icon: User },
     { id: "in_transit", label: "Llegando", actionLabel: "Finalizar viaje", icon: Navigation },
 ];
 
@@ -244,7 +244,7 @@ export default function DriverServicePage() {
             </div>
 
             {/* 2. TOP BAR (Minimal) */}
-            <div className="absolute top-0 left-0 right-0 z-20 p-4 pt-4 flex justify-center pointer-events-none">
+            <div className="absolute top-0 left-0 right-0 z-20 p-4 pt-4 flex flex-col items-center gap-2 pointer-events-none">
                 <div className="bg-white/95 backdrop-blur-md shadow-sm border border-gray-100 rounded-full px-4 py-2 flex items-center gap-3 pointer-events-auto max-w-[90%]">
                     <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
                     <span className="text-sm font-semibold truncate max-w-[120px]">
@@ -257,6 +257,16 @@ export default function DriverServicePage() {
                     <Button size="icon" variant="ghost" className="w-6 h-6 ml-1 rounded-full text-green-600 hover:bg-green-50" onClick={() => window.open(`tel:${client?.phone}`)}>
                         <Phone className="w-3.5 h-3.5" />
                     </Button>
+                </div>
+
+                {/* Phase Indicator Badge */}
+                <div className={cn(
+                    "px-3 py-1 rounded-full text-xs font-bold shadow-md border-2 transition-all pointer-events-none",
+                    isPickupPhase
+                        ? "bg-blue-500 text-white border-blue-300"
+                        : "bg-green-500 text-white border-green-300"
+                )}>
+                    {isPickupPhase ? "🔵 Fase 1: Recoger cliente" : "🟢 Fase 2: Ir al destino"}
                 </div>
             </div>
 
@@ -298,10 +308,13 @@ export default function DriverServicePage() {
                                     {routeMetrics.distance.toFixed(1)} km
                                 </span>
                                 <span className="text-gray-400 text-sm">•</span>
-                                <span className="text-sm text-gray-500 truncate max-w-[150px]">
-                                    {address}
+                                <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-gray-100 text-gray-700">
+                                    {isPickupPhase ? "→ Cliente" : "→ Destino"}
                                 </span>
                             </div>
+                            <p className="text-xs text-gray-500 truncate max-w-[220px] mt-1">
+                                {address}
+                            </p>
                         </div>
 
                         {/* Navigation FAB */}
