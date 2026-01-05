@@ -34,6 +34,7 @@ interface ServiceRequest {
     assigned_driver_id: string | null;
     notes: string;
     cancellation_reason: string | null;
+    boarding_pin: string | null;
 }
 
 interface Driver {
@@ -340,7 +341,7 @@ export default function ClienteTrackingPage() {
                         serviceId={requestId}
                         pickupLocation={{ lat: request.origin_lat, lng: request.origin_lng }}
                         dropoffLocation={request.destination_lat ? { lat: request.destination_lat, lng: request.destination_lng } : undefined}
-                        serviceStatus={request.status}
+                        trackingStep={request.tracking_step}
                         className="w-full h-full"
                     // Future: Pass onMetricsChange={(m) => setRouteMetrics(m)}
                     />
@@ -366,6 +367,7 @@ export default function ClienteTrackingPage() {
                     driverPlate={driver.car_plate}
                     driverCar={driver.car_model}
                     price={request.estimated_price}
+                    boardingPin={request.boarding_pin || undefined}
                     onCancel={handleCancelClick}
                     onCall={() => window.open(`tel:${driver.phone}`)}
                     onMessage={() => console.log("Open chat")} // Placeholder

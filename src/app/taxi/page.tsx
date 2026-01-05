@@ -18,13 +18,19 @@ interface DailyStats {
 
 export default function TaxiHomePage() {
     const { profile, refreshProfile } = useAuth();
-    const [isAvailable, setIsAvailable] = useState(() => profile?.is_available ?? false);
+    const [isAvailable, setIsAvailable] = useState(false);
     const [isUpdating, setIsUpdating] = useState(false);
+    const [mounted, setMounted] = useState(false);
     const { activeTrip } = useActiveTrip("driver");
     const supabase = createClient();
 
     // Real daily stats
     const [dailyStats, setDailyStats] = useState<DailyStats>({ trips: 0, earnings: 0 });
+
+    // Prevent hydration mismatch
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
     // Fetch real daily stats
     useEffect(() => {
@@ -92,6 +98,15 @@ export default function TaxiHomePage() {
             setIsUpdating(false);
         }
     };
+
+    // Don't render until mounted to prevent hydration mismatch
+    if (!mounted) {
+        return (
+            <div className="h-screen bg-gray-50 flex items-center justify-center">
+                <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+            </div>
+        );
+    }
 
     if (activeTrip) {
         return (

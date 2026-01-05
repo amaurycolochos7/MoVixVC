@@ -232,6 +232,9 @@ export function useSmartRoute(options: UseSmartRouteOptions) {
     const shouldRecalculate = useCallback(() => {
         // Phase changed
         if (phaseRef.current !== phase) {
+            if (process.env.NODE_ENV === "development") {
+                console.log(`🔄 [useSmartRoute] PHASE CHANGED: ${phaseRef.current} → ${phase}`);
+            }
             phaseRef.current = phase;
             return true;
         }

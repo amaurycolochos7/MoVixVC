@@ -85,19 +85,34 @@ export function DriverNavigationMap({
     // pickup: accepted, on_the_way, nearby, arrived
     // trip: picked_up, in_transit
     const phase = useMemo(() => {
-        if (["picked_up", "in_transit"].includes(trackingStep)) {
-            return "trip";
+        const newPhase = ["picked_up", "in_transit"].includes(trackingStep) ? "trip" : "pickup";
+
+        if (process.env.NODE_ENV === "development") {
+            console.log(`📍 [DriverNavigationMap] Phase calculation:`, {
+                trackingStep,
+                phase: newPhase,
+                hasDropoff: !!dropoffLocation
+            });
         }
-        return "pickup";
-    }, [trackingStep]);
+
+        return newPhase;
+    }, [trackingStep, dropoffLocation]);
 
     // Smart route calculation
     const smartRoute = useSmartRoute({
-        driverPosition: isValidCoords(animatedDriver.position) ? animatedDriver.position : (isValidCoords(driverLocation) ? driverLocation : null),
+        driverPosition: isValidCoords(animatedDriver.position) ? animatedDriver.position : (isValidCoords(driverLocation) ? driverLocation! : null),
         origin: isValidCoords(pickupLocation) ? pickupLocation : DEFAULT_CENTER,
         destination: dropoffLocation || undefined,
         phase: phase === "trip" ? "trip" : "pickup",
     });
+
+    // Force recalculation when phase changes
+    useEffect(() => {
+        if (phase === "trip" && dropoffLocation) {
+            console.log("🔄 Phase changed to TRIP - forcing route recalculation to dropoff");
+            smartRoute.forceRecalculate();
+        }
+    }, [phase, dropoffLocation]);
 
     // Notify parent of metrics changes
     useEffect(() => {
@@ -232,8 +247,11 @@ export function DriverNavigationMap({
                 logoPosition="bottom-left"
                 scrollZoom={true}
                 touchZoomRotate={true}
+                touchPitch={true}
                 doubleClickZoom={true}
                 dragPan={true}
+                dragRotate={true}
+                keyboard={true}
             >
                 {/* Route line */}
                 {smartRoute.route && (

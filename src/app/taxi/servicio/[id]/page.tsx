@@ -25,6 +25,7 @@ import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { useDriverLocation } from "@/hooks/useDriverLocation";
 import { DriverNavigationMap } from "@/components/maps/driver-navigation-map";
+import { BoardingPinModal } from "@/components/driver/boarding-pin-modal";
 import { cn } from "@/lib/utils";
 
 // Tracking steps configuration
@@ -83,6 +84,7 @@ export default function DriverServicePage() {
     const [loading, setLoading] = useState(true);
     const [showCancelModal, setShowCancelModal] = useState(false);
     const [showPaymentModal, setShowPaymentModal] = useState(false);
+    const [showPinModal, setShowPinModal] = useState(false);
     const [selectedReason, setSelectedReason] = useState<string | null>(null);
     const [cancelling, setCancelling] = useState(false);
     const [updatingStep, setUpdatingStep] = useState(false);
@@ -224,6 +226,40 @@ export default function DriverServicePage() {
         }
     };
 
+    const handleValidatePin = async (pin: string): Promise<boolean> => {
+        try {
+            console.log("🔐 Validating boarding PIN:", pin);
+
+            const { data, error } = await supabase.rpc('validate_boarding_pin', {
+                p_request_id: requestId,
+                p_pin: pin
+            });
+
+            if (error) {
+                console.error("❌ PIN validation error:", error);
+                toast.error("Error al validar código");
+                return false;
+            }
+
+            if (!data.success) {
+                console.log("❌ Invalid PIN:", data.message);
+                toast.error(data.message || "Código incorrecto");
+                return false;
+            }
+
+            console.log("✅ PIN validated successfully!");
+            toast.success("¡Viaje iniciado! 🚗");
+            setShowPinModal(false);
+            fetchRequest(); // Refresh to get updated status
+            return true;
+
+        } catch (err: any) {
+            console.error("❌ Error validating PIN:", err);
+            toast.error("Error al validar código");
+            return false;
+        }
+    };
+
     const openMapsNavigation = () => {
         const lat = currentStepIndex < 4 ? request?.origin_lat : request?.destination_lat;
         const lng = currentStepIndex < 4 ? request?.origin_lng : request?.destination_lng;
@@ -241,7 +277,7 @@ export default function DriverServicePage() {
         <div className="relative h-[100dvh] w-full overflow-hidden bg-gray-100 flex flex-col">
 
             {/* 1. MAP BACKGROUND */}
-            <div className="absolute inset-0 z-0">
+            <div className="absolute inset-0 z-0 pointer-events-auto">
                 <DriverNavigationMap
                     pickupLocation={{ lat: request.origin_lat, lng: request.origin_lng }}
                     dropoffLocation={
@@ -343,6 +379,17 @@ export default function DriverServicePage() {
 
                     {/* Expanded Content */}
                     <div className={cn("space-y-4 transition-opacity duration-300", isSheetExpanded ? "opacity-100" : "opacity-0 hidden")}>
+
+                        {/* INICIAR VIAJE CON CLIENTE - Always Visible */}
+                        {request.status !== 'in_progress' && request.status !== 'completed' && (
+                            <Button
+                                className="w-full h-16 text-lg font-bold shadow-lg bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl border-2 border-blue-500/30"
+                                onClick={() => setShowPinModal(true)}
+                            >
+                                <Shield className="w-6 h-6 mr-3" />
+                                INICIAR VIAJE CON CLIENTE
+                            </Button>
+                        )}
 
                         {/* Action Primary Button */}
                         {!isLastStep ? (
@@ -465,6 +512,13 @@ export default function DriverServicePage() {
                     </Card>
                 </div>
             )}
+
+            {/* Boarding PIN Modal */}
+            <BoardingPinModal
+                open={showPinModal}
+                onClose={() => setShowPinModal(false)}
+                onValidate={handleValidatePin}
+            />
 
         </div>
     );
