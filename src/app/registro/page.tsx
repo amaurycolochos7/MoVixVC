@@ -29,6 +29,12 @@ export default function RegistroPage() {
         fullName: "",
         phone: "",
         role: "cliente",
+        // Vehicle data (only for taxi/mandadito)
+        vehicleBrand: "",
+        vehicleModel: "",
+        vehicleColor: "",
+        vehiclePlate: "",
+        taxiNumber: "",
     });
     const [loading, setLoading] = useState(false);
 
@@ -47,6 +53,19 @@ export default function RegistroPage() {
         if (formData.password.length < 6) {
             toast.error("La contraseña debe tener al menos 6 caracteres");
             return;
+        }
+
+        // Validations for drivers
+        if (formData.role !== "cliente") {
+            if (!formData.phone) {
+                toast.error("El teléfono es obligatorio para conductores");
+                return;
+            }
+            if (!formData.vehicleBrand || !formData.vehicleModel ||
+                !formData.vehicleColor || !formData.vehiclePlate || !formData.taxiNumber) {
+                toast.error("Todos los datos del vehículo son obligatorios");
+                return;
+            }
         }
 
         setLoading(true);
@@ -71,7 +90,29 @@ export default function RegistroPage() {
                 throw new Error("No se pudo crear el usuario");
             }
 
-            toast.success("Cuenta creada. Revisa tu email para verificar.");
+            // If driver, insert vehicle data
+            if (formData.role !== "cliente") {
+                const { error: vehicleError } = await supabase
+                    .from("driver_vehicles")
+                    .insert({
+                        user_id: authData.user.id,
+                        brand: formData.vehicleBrand,
+                        model: formData.vehicleModel,
+                        color: formData.vehicleColor,
+                        plate_number: formData.vehiclePlate.toUpperCase(),
+                        taxi_number: formData.taxiNumber,
+                    });
+
+                if (vehicleError) throw vehicleError;
+            }
+
+            // Different messages based on role
+            if (formData.role === "cliente") {
+                toast.success("Cuenta creada. Revisa tu email para verificar.");
+            } else {
+                toast.success("Cuenta creada. Tu solicitud será revisada por un administrador.");
+            }
+
             router.push("/login");
 
         } catch (err: any) {
@@ -185,6 +226,73 @@ export default function RegistroPage() {
                                 </SelectContent>
                             </Select>
                         </div>
+
+                        {/* Vehicle Data Section - Only for drivers */}
+                        {(formData.role === "taxi" || formData.role === "mandadito") && (
+                            <div className="mt-6 pt-6 border-t-2 border-gray-200 space-y-4">
+                                <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                                    <Car className="w-5 h-5 text-primary" />
+                                    Datos del Vehículo
+                                </h3>
+                                <p className="text-sm text-muted-foreground">
+                                    Todos los campos son obligatorios
+                                </p>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="vehicleBrand">Marca</Label>
+                                        <Input
+                                            id="vehicleBrand"
+                                            placeholder="Nissan, Toyota, etc."
+                                            value={formData.vehicleBrand}
+                                            onChange={(e) => handleChange("vehicleBrand", e.target.value)}
+                                        />
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label htmlFor="vehicleModel">Modelo</Label>
+                                        <Input
+                                            id="vehicleModel"
+                                            placeholder="Versa 2020"
+                                            value={formData.vehicleModel}
+                                            onChange={(e) => handleChange("vehicleModel", e.target.value)}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label htmlFor="vehicleColor">Color</Label>
+                                    <Input
+                                        id="vehicleColor"
+                                        placeholder="Blanco, Verde, Blanco con azul, etc."
+                                        value={formData.vehicleColor}
+                                        onChange={(e) => handleChange("vehicleColor", e.target.value)}
+                                    />
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="vehiclePlate">Placas</Label>
+                                        <Input
+                                            id="vehiclePlate"
+                                            placeholder="ABC-1234"
+                                            value={formData.vehiclePlate}
+                                            onChange={(e) => handleChange("vehiclePlate", e.target.value)}
+                                        />
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label htmlFor="taxiNumber">Número de Taxi</Label>
+                                        <Input
+                                            id="taxiNumber"
+                                            placeholder="1234"
+                                            value={formData.taxiNumber}
+                                            onChange={(e) => handleChange("taxiNumber", e.target.value)}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        )}
 
                         <div className="space-y-2">
                             <Label htmlFor="password">Contraseña</Label>

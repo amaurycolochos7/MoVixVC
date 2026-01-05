@@ -30,6 +30,13 @@ interface KYCSubmission {
         role: string;
         kyc_submitted_at: string;
     };
+    vehicle?: {
+        brand: string;
+        model: string;
+        color: string;
+        plate_number: string;
+        taxi_number: string;
+    } | null;
 }
 
 export default function AdminKYCPage() {
@@ -48,7 +55,7 @@ export default function AdminKYCPage() {
         setError(null);
 
         try {
-            // Get pending KYC submissions with user data
+            // Get pending KYC submissions with user data AND vehicle data
             const { data, error: fetchError } = await supabase
                 .from('kyc_submissions')
                 .select(`
@@ -68,6 +75,18 @@ export default function AdminKYCPage() {
 
             if (fetchError) throw fetchError;
 
+            // Fetch vehicle data for all users
+            const { data: vehiclesData } = await supabase
+                .from('driver_vehicles')
+                .select('user_id, brand, model, color, plate_number, taxi_number');
+
+            // Map vehicle data by user_id
+            const vehiclesMap = new Map(
+                vehiclesData?.map(v => [v.user_id, v]) || []
+            );
+
+            if (fetchError) throw fetchError;
+
             // Filter to only show pending submissions by joining with users table
             const { data: pendingUsers } = await supabase
                 .from('users')
@@ -76,7 +95,11 @@ export default function AdminKYCPage() {
 
             const pendingUserIds = new Set(pendingUsers?.map(u => u.id) || []);
             const pendingSubmissions = (data as unknown as KYCSubmission[])
-                ?.filter(s => pendingUserIds.has(s.user_id)) || [];
+                ?.filter(s => pendingUserIds.has(s.user_id))
+                ?.map(s => ({
+                    ...s,
+                    vehicle: vehiclesMap.get(s.user_id) || null
+                })) || [];
 
             setSubmissions(pendingSubmissions);
 
@@ -275,7 +298,16 @@ export default function AdminKYCPage() {
                                                 </div>
                                                 {submission.user.phone && (
                                                     <div className="text-sm text-gray-500 dark:text-gray-400">
-                                                        {submission.user.phone}
+                                                        📱 {submission.user.phone}
+                                                    </div>
+                                                )}
+                                                {submission.vehicle && (
+                                                    <div className="mt-2 text-xs text-gray-600 dark:text-gray-400 space-y-0.5">
+                                                        <div className="font-medium text-gray-700 dark:text-gray-300">🚗 Vehículo:</div>
+                                                        <div>{submission.vehicle.brand} {submission.vehicle.model}</div>
+                                                        <div>Color: {submission.vehicle.color}</div>
+                                                        <div>Placas: {submission.vehicle.plate_number}</div>
+                                                        <div>Taxi #: {submission.vehicle.taxi_number}</div>
                                                     </div>
                                                 )}
                                             </div>

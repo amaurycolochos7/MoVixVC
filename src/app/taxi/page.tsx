@@ -6,6 +6,7 @@ import { Radar } from "@/components/radar/radar";
 import { ServiceTracking } from "@/components/tracking/service-tracking";
 import { useActiveTrip } from "@/hooks/useActiveTrip";
 import { useAuth } from "@/contexts/auth-context";
+import { AccountPendingMessage } from "@/components/driver/account-pending";
 import { createClient } from "@/lib/supabase/client";
 import { Power, TrendingUp, Star, Clock, ChevronRight, Loader2, Zap } from "lucide-react";
 import { toast } from "sonner";
@@ -106,6 +107,11 @@ export default function TaxiHomePage() {
                 <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
             </div>
         );
+    }
+
+    // Check if driver is approved
+    if (profile && profile.kyc_status !== "approved") {
+        return <AccountPendingMessage userName={profile.full_name} />;
     }
 
     if (activeTrip) {
