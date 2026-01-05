@@ -62,6 +62,12 @@ export default function RegistroPage() {
                 toast.error("El teléfono es obligatorio para conductores");
                 return;
             }
+            // Limpiar el teléfono de espacios y guiones para validar
+            const cleanPhone = formData.phone.replace(/\D/g, '');
+            if (cleanPhone.length !== 10) {
+                toast.error("El teléfono debe tener exactamente 10 dígitos");
+                return;
+            }
             if (!formData.vehicleBrand || !formData.vehicleModel ||
                 !formData.vehicleColor || !formData.vehiclePlate || !formData.taxiNumber) {
                 toast.error("Todos los datos del vehículo son obligatorios");
