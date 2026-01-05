@@ -93,26 +93,9 @@ export default function RegistroPage() {
 
             // If driver, insert vehicle data
             if (formData.role !== "cliente") {
-                // Esperar a que el trigger cree el perfil en public.users
-                let profileCreated = false;
-                for (let i = 0; i < 5; i++) {
-                    const { data: profile } = await supabase
-                        .from("users")
-                        .select("id")
-                        .eq("id", authData.user.id)
-                        .single();
-
-                    if (profile) {
-                        profileCreated = true;
-                        break;
-                    }
-                    // Esperar 1 segundo antes de reintentar
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-                }
-
-                if (!profileCreated) {
-                    throw new Error("El perfil de usuario tardó demasiado en crearse. Por favor contacte soporte.");
-                }
+                // Esperar un momento para que el trigger termine de crear el perfil
+                // Evitamos consultar la tabla users directamente para prevenir errores de permisos/RLS durante el registro
+                await new Promise(resolve => setTimeout(resolve, 2500));
 
                 const { error: vehicleError } = await supabase
                     .from("driver_vehicles")
