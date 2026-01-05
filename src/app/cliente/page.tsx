@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Car, Package, Clock, Loader2 } from "lucide-react";
+import { Car, Bike, Clock, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/contexts/auth-context";
@@ -100,7 +100,7 @@ export default function ClienteHomePage() {
                     <Card className="hover:border-primary/50 cursor-pointer transition-all hover:shadow-lg hover:-translate-y-1 bg-gradient-to-br from-white to-purple-50/50 border-0 shadow-md h-44">
                         <CardContent className="flex flex-col items-center justify-center h-full gap-2 p-4">
                             <div className="p-3 bg-purple-100 rounded-full text-purple-600">
-                                <Package className="h-8 w-8" />
+                                <Bike className="h-8 w-8" />
                             </div>
                             <span className="font-bold text-lg text-slate-700">Mandadito</span>
                             <span className="text-xs text-slate-500 text-center">Envía o recoge paquetes</span>
@@ -140,13 +140,13 @@ export default function ClienteHomePage() {
                                 <CardContent className="p-4 flex items-center justify-between">
                                     <div className="flex items-center gap-4">
                                         <div className={`w-10 h-10 rounded-full flex items-center justify-center ${trip.service_type === 'taxi'
-                                                ? 'bg-blue-100'
-                                                : 'bg-purple-100'
+                                            ? 'bg-blue-100'
+                                            : 'bg-purple-100'
                                             }`}>
                                             {trip.service_type === 'taxi' ? (
                                                 <Car className={`w-5 h-5 ${trip.status === 'cancelled' ? 'text-red-500' : 'text-blue-600'}`} />
                                             ) : (
-                                                <Package className={`w-5 h-5 ${trip.status === 'cancelled' ? 'text-red-500' : 'text-purple-600'}`} />
+                                                <Bike className={`w-5 h-5 ${trip.status === 'cancelled' ? 'text-red-500' : 'text-purple-600'}`} />
                                             )}
                                         </div>
                                         <div>
