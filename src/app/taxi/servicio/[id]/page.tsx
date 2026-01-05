@@ -204,11 +204,24 @@ export default function DriverServicePage() {
         setCancelling(true);
         try {
             const reasonLabel = CANCELLATION_REASONS.find(r => r.id === selectedReason)?.label || selectedReason;
-            await supabase.from("service_requests").update({
-                status: "cancelled", cancelled_at: new Date().toISOString(), cancellation_reason: `Cancelado por conductor: ${reasonLabel}`
-            }).eq("id", requestId);
+
+            // Use RPC for atomic update + availability reset
+            const { data, error } = await supabase.rpc('cancel_service_by_driver', {
+                p_request_id: requestId,
+                p_reason: `Cancelado por conductor: ${reasonLabel}`
+            });
+
+            if (error) throw error;
+            if (data && !data.success) throw new Error(data.error || "Error desconocido");
+
+            toast.success("Viaje cancelado exitosamente");
             router.push("/taxi");
-        } catch (e) { toast.error("Error"); } finally { setCancelling(false); }
+        } catch (e: any) {
+            console.error("Cancellation error:", e);
+            toast.error("Error al cancelar: " + (e.message || "Desconocido"));
+        } finally {
+            setCancelling(false);
+        }
     };
 
     const openMapsNavigation = () => {

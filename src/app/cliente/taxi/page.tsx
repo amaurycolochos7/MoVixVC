@@ -49,6 +49,7 @@ export default function TaxiWizardPage() {
     const [showMapPicker, setShowMapPicker] = useState(false);
     const [showOriginMapPicker, setShowOriginMapPicker] = useState(false);
     const [destinationCoords, setDestinationCoords] = useState<{ lat: number, lng: number } | null>(null);
+    const [destinationReference, setDestinationReference] = useState("");
     const [originCoords, setOriginCoords] = useState<{ lat: number, lng: number } | null>(null);
     const [originText, setOriginText] = useState("");
 
@@ -76,8 +77,8 @@ export default function TaxiWizardPage() {
             const eta = Math.ceil((distance / 30) * 60); // minutes
             setRouteETA(eta);
 
-            // Calculate price: Base 33 + 8 pesos per km
-            const price = Math.ceil(33 + (distance * 8));
+            // Calculate price: Fixed Base $35 (User requested fixed price, driver negotiates extra)
+            const price = 35;
             setEstimatedPrice(price);
         };
 
@@ -308,7 +309,7 @@ export default function TaxiWizardPage() {
                 address: destinationText,
                 lat: destinationCoords?.lat || 0,
                 lng: destinationCoords?.lng || 0,
-                address_references: "",
+                address_references: destinationReference,
             },
             notes: "",
             offerPrice: estimatedPrice.toString(),
@@ -603,6 +604,21 @@ export default function TaxiWizardPage() {
                                 </div>
                             </div>
                         </div>
+
+                        {/* Reference field for destination */}
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-gray-700">
+                                Referencias del destino (opcional):
+                            </label>
+                            <Textarea
+                                placeholder='Ej: "Edificio blanco", "Junto al parque", "Local con letrero verde"'
+                                value={destinationReference}
+                                onChange={(e) => setDestinationReference(e.target.value)}
+                                rows={2}
+                                className="resize-none"
+                            />
+                        </div>
+
                         <Button
                             variant="ghost"
                             size="sm"
@@ -650,10 +666,20 @@ export default function TaxiWizardPage() {
                             <p className="text-4xl font-black tracking-tight">
                                 ${estimatedPrice}
                             </p>
-                        </div>
-                        <div className="text-right text-xs text-gray-400">
-                            <p>Tarifa base: $33</p>
-                            <p>+ ${(estimatedPrice - 33).toFixed(0)} por distancia</p>
+                            <div className="mt-3 bg-blue-50/50 border border-blue-100 rounded-xl p-3 flex gap-3 text-left">
+                                <div className="mt-0.5">
+                                    <svg className="w-5 h-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                </div>
+                                <div className="space-y-1">
+                                    <p className="text-sm font-semibold text-blue-900">Tarifa Local: $35 MXN</p>
+                                    <p className="text-xs text-blue-700 leading-relaxed">
+                                        Tarifa mínima dentro de <span className="font-medium">Venustiano Carranza</span>.
+                                        El precio final puede variar por distancia y es negociable con el conductor.
+                                    </p>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </Card>

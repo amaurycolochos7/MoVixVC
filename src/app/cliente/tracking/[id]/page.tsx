@@ -10,6 +10,8 @@ import { TripRatingModal } from "@/components/rating";
 import { ClientTrackingMap } from "@/components/maps/client-tracking-map";
 import { RideBottomSheet } from "@/components/tracking/ride-bottom-sheet";
 import { RideTopBar } from "@/components/tracking/ride-top-bar";
+import { CancellationModal } from "@/components/tracking/cancellation-modal";
+import { useServiceDriverLocation } from "@/hooks/useServiceDriverLocation";
 
 // Make sure to remove any other imports if they are unused
 // import { TripAnimation } from "@/components/tracking"; 
@@ -57,6 +59,27 @@ export default function ClienteTrackingPage() {
     const [loading, setLoading] = useState(true);
     const [showRatingModal, setShowRatingModal] = useState(false);
     const [hasRated, setHasRated] = useState(false);
+
+    // Live driver location for distance checks (Moved up to fix Hook Error)
+    const { lastLocation } = useServiceDriverLocation({ serviceId: requestId });
+
+    // Cancellation Logic States
+    const [showCancelModal, setShowCancelModal] = useState(false);
+
+    // Helper to calculate distance (Haversine)
+    const calculateDistance = (lat1: number, lng1: number, lat2: number, lng2: number) => {
+        const R = 6371e3; // metres
+        const φ1 = lat1 * Math.PI / 180;
+        const φ2 = lat2 * Math.PI / 180;
+        const Δφ = (lat2 - lat1) * Math.PI / 180;
+        const Δλ = (lng2 - lng1) * Math.PI / 180;
+
+        const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+            Math.cos(φ1) * Math.cos(φ2) *
+            Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c; // in meters
+    };
 
     // Mock ETA and Distance since calculating it from hook requires passing it up or using context
     // For now, we'll try to get it from the map component if possible, or just default it
@@ -220,14 +243,64 @@ export default function ClienteTrackingPage() {
 
     if (!request) return null;
 
-    const handleCancel = async () => {
-        if (!confirm("¿Seguro que quieres cancelar el viaje?")) return;
+    // Determine if we show map
+    const showMap = request && ["assigned", "in_progress", "picking_up", "arrived"].includes(request.status);
 
+    const getCancellationRestrictions = () => {
+        if (!request || request.status === "pending") return { canCancel: true };
+
+        // 1. Time restriction (5 minutes)
+        if (request.status === "assigned" || request.status === "on_the_way" || request.status === "nearby") {
+            // Use assigned_at or created_at if assigned_at is null/missing
+            // Assuming we track assigned_at in the DB, though the interface above showed it might be null
+            // We'll use created_at as fallback but ideally assigned_at is better
+            const startTime = new Date(request.created_at).getTime();
+            const now = Date.now();
+            const minutesElapsed = (now - startTime) / 1000 / 60;
+
+            if (minutesElapsed > 5) {
+                return {
+                    canCancel: false,
+                    reason: "time" as const,
+                    message: "Han pasado más de 5 minutos desde la solicitud. Para cancelar, contacta a soporte." // Simplified per user request
+                };
+            }
+
+            // 2. Distance restriction (e.g. < 300 meters)
+            if (lastLocation && request.origin_lat && request.origin_lng) {
+                const distMeters = calculateDistance(
+                    lastLocation.lat, lastLocation.lng,
+                    request.origin_lat, request.origin_lng
+                );
+
+                if (distMeters < 300) { // 300 meters threshold
+                    return {
+                        canCancel: false,
+                        reason: "distance" as const,
+                        message: "El conductor está muy cerca de tu ubicación (a menos de 300m). Ya no es posible cancelar."
+                    };
+                }
+            }
+        }
+
+        return { canCancel: true };
+    };
+
+    const handleCancelClick = () => {
+        setShowCancelModal(true);
+    };
+
+    const handleConfirmCancel = async (reason: string) => {
         try {
             await supabase
                 .from("service_requests")
-                .update({ status: "cancelled", cancellation_reason: "Cancelado por usuario" })
+                .update({
+                    status: "cancelled",
+                    cancellation_reason: reason
+                })
                 .eq("id", requestId);
+
+            setShowCancelModal(false);
             toast.success("Viaje cancelado");
             router.push("/cliente");
         } catch (e) {
@@ -235,18 +308,17 @@ export default function ClienteTrackingPage() {
         }
     };
 
-    // Determine if we show map
-    const showMap = ["assigned", "in_progress", "picking_up", "arrived"].includes(request.status);
+
 
     // If completed or cancelled, show different view or redirect
     if (request.status === "completed" || request.status === "cancelled") {
-        // Just a simple overlay or redirect for now to keep it clean
-        // Ideally reuse the rating modal logic
         if (request.status === "cancelled") {
             router.push("/cliente");
             return null;
         }
     }
+
+    const restrictions = getCancellationRestrictions();
 
     return (
         <div className="relative w-full h-screen overflow-hidden bg-gray-100 flex flex-col">
@@ -294,12 +366,22 @@ export default function ClienteTrackingPage() {
                     driverPlate={driver.car_plate}
                     driverCar={driver.car_model}
                     price={request.estimated_price}
-                    onCancel={handleCancel}
+                    onCancel={handleCancelClick}
                     onCall={() => window.open(`tel:${driver.phone}`)}
                     onMessage={() => console.log("Open chat")} // Placeholder
                     onShare={() => console.log("Share trip")} // Placeholder
                 />
             )}
+
+            {/* Cancellation Modal */}
+            <CancellationModal
+                open={showCancelModal}
+                onClose={() => setShowCancelModal(false)}
+                onConfirm={handleConfirmCancel}
+                canCancel={restrictions.canCancel}
+                restrictionReason={restrictions.reason}
+                restrictionMessage={restrictions.message}
+            />
 
             {/* Rating Modal */}
             {showRatingModal && driver && (

@@ -43,10 +43,10 @@ export default function TaxiHomePage() {
 
             if (!error && data) {
                 const earnings = data.reduce((sum, trip) => sum + (trip.final_price || 0), 0);
-                const commission = data.length * 3; // $3 per trip
+                const commission = data.length * 5; // $5 per trip
                 setDailyStats({
                     trips: data.length,
-                    earnings: earnings - commission // Net after $3/trip commission
+                    earnings: earnings - commission // Net after $5/trip commission
                 });
             }
         };
@@ -102,112 +102,48 @@ export default function TaxiHomePage() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-100">
-            {/* Header - Light */}
-            <div className="bg-white px-4 py-4 shadow-sm">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <p className="text-sm text-gray-500">Hola,</p>
-                        <h1 className="text-xl font-bold text-gray-900">{profile?.full_name?.split(' ')[0] || 'Conductor'}</h1>
-                    </div>
-                    <div className="flex items-center gap-1 bg-yellow-100 px-3 py-1.5 rounded-full">
-                        <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
-                        <span className="font-bold text-sm text-yellow-700">4.9</span>
-                    </div>
-                </div>
-            </div>
-
-            {/* Go Online Button */}
-            <div className="p-4">
+        <div className="h-screen bg-gray-50 flex flex-col">
+            {/* Minimalist Top Bar - DiDi Style */}
+            <div className="bg-white px-4 py-3 shadow-sm z-10 flex items-center justify-between pointer-events-auto">
+                {/* Status Toggle - Compact */}
                 <button
                     onClick={handleAvailabilityChange}
                     disabled={isUpdating}
-                    className={`w-full rounded-2xl p-5 transition-all duration-300 shadow-lg ${isAvailable
-                        ? 'bg-gradient-to-r from-green-500 to-emerald-500'
-                        : 'bg-gray-700'
+                    className={`flex items-center gap-2 px-4 py-2 rounded-full transition-all duration-300 shadow-sm ${isAvailable
+                        ? 'bg-emerald-100 text-emerald-800 ring-1 ring-emerald-500/20'
+                        : 'bg-slate-100 text-slate-600 ring-1 ring-slate-200'
                         }`}
                 >
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                            <div className={`w-14 h-14 rounded-full flex items-center justify-center ${isAvailable ? 'bg-white/20' : 'bg-gray-600'
-                                }`}>
-                                {isUpdating ? (
-                                    <Loader2 className="w-7 h-7 text-white animate-spin" />
-                                ) : (
-                                    <Power className="w-7 h-7 text-white" />
-                                )}
-                            </div>
-                            <div className="text-left">
-                                <h2 className="text-xl font-bold text-white">
-                                    {isAvailable ? 'En línea' : 'Desconectado'}
-                                </h2>
-                                <p className="text-sm text-white/80">
-                                    {isAvailable ? 'Recibiendo solicitudes...' : 'Toca para comenzar'}
-                                </p>
-                            </div>
-                        </div>
-                        {isAvailable && (
-                            <div className="flex items-center gap-1 bg-white/20 px-3 py-1 rounded-full">
-                                <Zap className="w-4 h-4 text-white" />
-                                <span className="text-sm font-medium text-white">Activo</span>
-                            </div>
-                        )}
-                    </div>
-                </button>
-            </div>
-
-            {/* Earnings Summary - Light */}
-            <div className="px-4 pb-4">
-                <div className="bg-white rounded-2xl p-4 shadow-sm">
-                    <div className="flex items-center justify-between mb-4">
-                        <h3 className="font-semibold text-gray-800">Resumen del día</h3>
-                        <Link href="/taxi/cuenta">
-                            <Button variant="ghost" size="sm" className="text-primary text-sm h-8">
-                                Ver todo <ChevronRight className="w-4 h-4 ml-1" />
-                            </Button>
-                        </Link>
-                    </div>
-                    <div className="grid grid-cols-3 gap-4">
-                        <div className="text-center">
-                            <div className="w-12 h-12 mx-auto mb-2 rounded-full bg-blue-100 flex items-center justify-center">
-                                <Clock className="w-5 h-5 text-blue-600" />
-                            </div>
-                            <p className="text-2xl font-bold text-gray-900">{dailyStats.trips}</p>
-                            <p className="text-xs text-gray-500">Viajes</p>
-                        </div>
-                        <div className="text-center">
-                            <div className="w-12 h-12 mx-auto mb-2 rounded-full bg-green-100 flex items-center justify-center">
-                                <TrendingUp className="w-5 h-5 text-green-600" />
-                            </div>
-                            <p className="text-2xl font-bold text-green-600">${dailyStats.earnings.toFixed(0)}</p>
-                            <p className="text-xs text-gray-500">Ganancia</p>
-                        </div>
-                        <div className="text-center">
-                            <div className="w-12 h-12 mx-auto mb-2 rounded-full bg-purple-100 flex items-center justify-center">
-                                <Star className="w-5 h-5 text-purple-600" />
-                            </div>
-                            <p className="text-2xl font-bold text-gray-900">--</p>
-                            <p className="text-xs text-gray-500">Rating</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Requests Section */}
-            <div className="px-4 pb-2">
-                <div className="flex items-center justify-between">
-                    <h3 className="font-bold text-lg text-gray-900">Solicitudes cercanas</h3>
-                    <span className={`text-xs px-2 py-1 rounded-full font-medium ${isAvailable
-                        ? 'bg-green-100 text-green-700'
-                        : 'bg-gray-200 text-gray-500'
-                        }`}>
-                        {isAvailable ? '● Activo' : '○ Inactivo'}
+                    <div className={`w-2.5 h-2.5 rounded-full animate-pulse ${isAvailable ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+                    <span className="font-bold text-sm">
+                        {isAvailable ? 'En línea' : 'Desconectado'}
                     </span>
+                    {isUpdating && <Loader2 className="w-3 h-3 animate-spin ml-1" />}
+                </button>
+
+                {/* Simplified Earnings - Right side */}
+                <div className="flex items-center gap-3">
+                    <Link href="/taxi/cuenta">
+                        <div className="text-right">
+                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Ganancia</p>
+                            <p className="text-lg font-bold text-gray-900 leading-none">
+                                ${dailyStats.earnings.toFixed(0)}
+                            </p>
+                        </div>
+                    </Link>
+                    <div className="w-px h-8 bg-gray-200 mx-1" />
+                    <div className="flex flex-col items-center">
+                        <div className="flex items-center gap-1 text-yellow-600">
+                            <span className="text-sm font-bold">4.9</span>
+                            <Star className="w-3 h-3 fill-yellow-500 text-yellow-500" />
+                        </div>
+                        <p className="text-[10px] text-gray-400 font-medium">Rating</p>
+                    </div>
                 </div>
             </div>
 
-            {/* Radar */}
-            <div className="bg-white rounded-t-3xl min-h-[35vh] shadow-lg">
+            {/* Radar / Content Area - Fills remaining space */}
+            <div className="flex-1 relative overflow-hidden flex flex-col">
                 <Radar serviceType="taxi" isAvailable={isAvailable} />
             </div>
         </div>
