@@ -111,7 +111,13 @@ export default function TaxiHomePage() {
 
     // Check if driver is approved
     if (profile && profile.kyc_status !== "approved") {
-        return <AccountPendingMessage userName={profile.full_name} />;
+        return (
+            <AccountPendingMessage
+                userName={profile.full_name}
+                isRejected={profile.kyc_status === 'rejected'}
+                reason={profile.kyc_rejection_reason}
+            />
+        );
     }
 
     if (activeTrip) {

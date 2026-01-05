@@ -12,6 +12,7 @@ interface UserProfile {
     role: string;
     avatar_url: string | null;
     kyc_status: string;
+    kyc_rejection_reason?: string;
     is_available: boolean;
     // Rating fields
     rating_avg: number;
