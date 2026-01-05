@@ -183,15 +183,17 @@ export default function AdminUsuariosPage() {
                                                     <Button variant="ghost" size="icon" onClick={() => setViewModal(user)} title="Ver detalles">
                                                         <Eye className="h-4 w-4 text-gray-500" />
                                                     </Button>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        onClick={() => setDeleteModal({ id: user.id, name: user.full_name })}
-                                                        title="Eliminar permanentemente"
-                                                        className="hover:text-red-600 hover:bg-red-50"
-                                                    >
-                                                        <Trash2 className="h-4 w-4 text-red-500" />
-                                                    </Button>
+                                                    {user.role !== "admin" && (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            onClick={() => setDeleteModal({ id: user.id, name: user.full_name })}
+                                                            title="Eliminar permanentemente"
+                                                            className="hover:text-red-600 hover:bg-red-50"
+                                                        >
+                                                            <Trash2 className="h-4 w-4 text-red-500" />
+                                                        </Button>
+                                                    )}
                                                 </div>
                                             </TableCell>
                                         </TableRow>
@@ -211,106 +213,110 @@ export default function AdminUsuariosPage() {
             </Card>
 
             {/* View Details Modal */}
-            {viewModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white dark:bg-gray-800 rounded-xl max-w-lg w-full p-6 relative">
-                        <button
-                            onClick={() => setViewModal(null)}
-                            className="absolute top-4 right-4 text-gray-500 hover:text-gray-700"
-                        >
-                            <X className="w-5 h-5" />
-                        </button>
+            {
+                viewModal && (
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                        <div className="bg-white dark:bg-gray-800 rounded-xl max-w-lg w-full p-6 relative">
+                            <button
+                                onClick={() => setViewModal(null)}
+                                className="absolute top-4 right-4 text-gray-500 hover:text-gray-700"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
 
-                        <div className="flex items-center gap-3 mb-6">
-                            <div className="p-3 bg-primary/10 rounded-full">
-                                <User className="w-6 h-6 text-primary" />
-                            </div>
-                            <div>
-                                <h3 className="text-xl font-bold">{viewModal.full_name}</h3>
-                                <p className="text-sm text-muted-foreground">{viewModal.email}</p>
-                            </div>
-                        </div>
-
-                        <div className="space-y-4">
-                            <div className="grid grid-cols-2 gap-4 text-sm">
-                                <div>
-                                    <label className="text-xs text-muted-foreground">ID</label>
-                                    <p className="font-mono">{viewModal.id}</p>
+                            <div className="flex items-center gap-3 mb-6">
+                                <div className="p-3 bg-primary/10 rounded-full">
+                                    <User className="w-6 h-6 text-primary" />
                                 </div>
                                 <div>
-                                    <label className="text-xs text-muted-foreground">Rol</label>
-                                    <div className="mt-1">{getRoleBadge(viewModal.role)}</div>
-                                </div>
-                                <div>
-                                    <label className="text-xs text-muted-foreground">Teléfono</label>
-                                    <p>{viewModal.phone || "No registrado"}</p>
-                                </div>
-                                <div>
-                                    <label className="text-xs text-muted-foreground">Fecha Registro</label>
-                                    <p>{format(new Date(viewModal.created_at), "PPP p", { locale: es })}</p>
-                                </div>
-                                <div>
-                                    <label className="text-xs text-muted-foreground">Estado KYC</label>
-                                    <p className="capitalize">{viewModal.kyc_status?.replace('_', ' ') || "N/A"}</p>
+                                    <h3 className="text-xl font-bold">{viewModal.full_name}</h3>
+                                    <p className="text-sm text-muted-foreground">{viewModal.email}</p>
                                 </div>
                             </div>
-                        </div>
 
-                        <div className="mt-8 flex justify-end">
-                            <Button onClick={() => setViewModal(null)}>
-                                Cerrar
-                            </Button>
+                            <div className="space-y-4">
+                                <div className="grid grid-cols-2 gap-4 text-sm">
+                                    <div>
+                                        <label className="text-xs text-muted-foreground">ID</label>
+                                        <p className="font-mono">{viewModal.id}</p>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-muted-foreground">Rol</label>
+                                        <div className="mt-1">{getRoleBadge(viewModal.role)}</div>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-muted-foreground">Teléfono</label>
+                                        <p>{viewModal.phone || "No registrado"}</p>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-muted-foreground">Fecha Registro</label>
+                                        <p>{format(new Date(viewModal.created_at), "PPP p", { locale: es })}</p>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-muted-foreground">Estado KYC</label>
+                                        <p className="capitalize">{viewModal.kyc_status?.replace('_', ' ') || "N/A"}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="mt-8 flex justify-end">
+                                <Button onClick={() => setViewModal(null)}>
+                                    Cerrar
+                                </Button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* Delete Confirmation Modal */}
-            {deleteModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white dark:bg-gray-800 rounded-xl max-w-md w-full p-6">
-                        <div className="flex items-center gap-3 text-red-600 mb-4">
-                            <AlertOctagon className="w-8 h-8" />
-                            <h3 className="text-lg font-bold">¿Eliminar Usuario?</h3>
-                        </div>
-                        <p className="text-gray-600 dark:text-gray-400 text-sm mb-6 leading-relaxed">
-                            Estás a punto de eliminar permanentemente a <strong>{deleteModal.name}</strong>.
-                            <br /><br />
-                            Esta acción borrará:
-                            <ul className="list-disc pl-5 mt-2 space-y-1">
-                                <li>Cuenta de acceso y perfil</li>
-                                <li>Historial de viajes y solicitudes</li>
-                                <li>Vehículos asociados</li>
-                                <li>Documentos KYC</li>
-                            </ul>
-                            <br />
-                            <span className="font-bold text-red-600">Esta acción es irreversible.</span>
-                        </p>
-                        <div className="flex flex-col-reverse sm:flex-row justify-end gap-3">
-                            <Button
-                                variant="outline"
-                                onClick={() => setDeleteModal(null)}
-                                className="w-full sm:w-auto"
-                            >
-                                Cancelar
-                            </Button>
-                            <Button
-                                variant="danger"
-                                onClick={handleDeleteUser}
-                                disabled={processingId === deleteModal.id}
-                                className="gap-2 w-full sm:w-auto"
-                            >
-                                {processingId === deleteModal.id ? (
-                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                ) : (
-                                    <Trash2 className="w-4 h-4" />
-                                )}
-                                Eliminar
-                            </Button>
+            {
+                deleteModal && (
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                        <div className="bg-white dark:bg-gray-800 rounded-xl max-w-md w-full p-6">
+                            <div className="flex items-center gap-3 text-red-600 mb-4">
+                                <AlertOctagon className="w-8 h-8" />
+                                <h3 className="text-lg font-bold">¿Eliminar Usuario?</h3>
+                            </div>
+                            <p className="text-gray-600 dark:text-gray-400 text-sm mb-6 leading-relaxed">
+                                Estás a punto de eliminar permanentemente a <strong>{deleteModal.name}</strong>.
+                                <br /><br />
+                                Esta acción borrará:
+                                <ul className="list-disc pl-5 mt-2 space-y-1">
+                                    <li>Cuenta de acceso y perfil</li>
+                                    <li>Historial de viajes y solicitudes</li>
+                                    <li>Vehículos asociados</li>
+                                    <li>Documentos KYC</li>
+                                </ul>
+                                <br />
+                                <span className="font-bold text-red-600">Esta acción es irreversible.</span>
+                            </p>
+                            <div className="flex flex-col-reverse sm:flex-row justify-end gap-3">
+                                <Button
+                                    variant="outline"
+                                    onClick={() => setDeleteModal(null)}
+                                    className="w-full sm:w-auto"
+                                >
+                                    Cancelar
+                                </Button>
+                                <Button
+                                    variant="danger"
+                                    onClick={handleDeleteUser}
+                                    disabled={processingId === deleteModal.id}
+                                    className="gap-2 w-full sm:w-auto"
+                                >
+                                    {processingId === deleteModal.id ? (
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                    ) : (
+                                        <Trash2 className="w-4 h-4" />
+                                    )}
+                                    Eliminar
+                                </Button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 }
