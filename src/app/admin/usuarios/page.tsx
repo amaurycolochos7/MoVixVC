@@ -90,7 +90,7 @@ export default function AdminUsuariosPage() {
     const getRoleBadge = (role: string) => {
         switch (role) {
             case "admin":
-                return <Badge variant="destructive">Admin</Badge>;
+                return <Badge variant="danger">Admin</Badge>;
             case "taxi":
                 return <Badge className="bg-blue-600 hover:bg-blue-700">Taxi</Badge>;
             case "mandadito":
@@ -286,25 +286,26 @@ export default function AdminUsuariosPage() {
                             <br />
                             <span className="font-bold text-red-600">Esta acción es irreversible.</span>
                         </p>
-                        <div className="flex justify-end gap-3">
+                        <div className="flex flex-col-reverse sm:flex-row justify-end gap-3">
                             <Button
                                 variant="outline"
                                 onClick={() => setDeleteModal(null)}
+                                className="w-full sm:w-auto"
                             >
                                 Cancelar
                             </Button>
                             <Button
-                                variant="destructive"
+                                variant="danger"
                                 onClick={handleDeleteUser}
                                 disabled={processingId === deleteModal.id}
-                                className="gap-2"
+                                className="gap-2 w-full sm:w-auto"
                             >
                                 {processingId === deleteModal.id ? (
                                     <Loader2 className="w-4 h-4 animate-spin" />
                                 ) : (
                                     <Trash2 className="w-4 h-4" />
                                 )}
-                                Eliminar Permanentemente
+                                Eliminar
                             </Button>
                         </div>
                     </div>
