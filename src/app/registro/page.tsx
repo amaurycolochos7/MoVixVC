@@ -99,10 +99,52 @@ export default function RegistroPage() {
 
             // If driver, insert vehicle data
             if (formData.role !== "cliente") {
-                // Esperar un momento para que el trigger termine de crear el perfil
-                // Evitamos consultar la tabla users directamente para prevenir errores de permisos/RLS durante el registro
-                await new Promise(resolve => setTimeout(resolve, 2500));
+                // ESTRATEGIA DE RECUPERACIÓN ROBUSTA
+                // 1. Verificar si el perfil existe (trigger debió crearlo)
+                const { data: profile } = await supabase
+                    .from("users")
+                    .select("id")
+                    .eq("id", authData.user.id)
+                    .maybeSingle();
 
+                // 2. Si no existe, forzar creación manual (Bypass de trigger fallido)
+                if (!profile) {
+                    console.log("Perfil no encontrado automáticamente, forzando creación manual...");
+
+                    const { error: createError } = await supabase.from("users").insert({
+                        id: authData.user.id,
+                        email: formData.email,
+                        full_name: formData.fullName,
+                        role: formData.role,
+                        phone: formData.phone, // Intentar con teléfono
+                    });
+
+                    if (createError) {
+                        console.error("Error al crear perfil manual:", createError);
+
+                        // Si falla por teléfono duplicado (Unique Constraint), reintentar SIN teléfono
+                        if (createError.code === '23505') {
+                            console.warn("Conflicto de teléfono detectado. Creando usuario sin teléfono.");
+                            const { error: retryError } = await supabase.from("users").insert({
+                                id: authData.user.id,
+                                email: formData.email,
+                                full_name: formData.fullName,
+                                role: formData.role,
+                                phone: null, // Phone NULL para permitir acceso
+                            });
+
+                            if (retryError) {
+                                throw new Error("Error crítico al crear usuario: " + retryError.message);
+                            }
+                            toast.warning("Tu número de teléfono ya estaba registrado. Se ha omitido temporalmente.");
+                        } else {
+                            // Otro error
+                            throw new Error("No se pudo iniciar el perfil de usuario: " + createError.message);
+                        }
+                    }
+                }
+
+                // 3. Insertar vehículo (ahora seguro porque el usuario existe)
                 const { error: vehicleError } = await supabase
                     .from("driver_vehicles")
                     .insert({
@@ -114,7 +156,13 @@ export default function RegistroPage() {
                         taxi_number: formData.taxiNumber,
                     });
 
-                if (vehicleError) throw vehicleError;
+                if (vehicleError) {
+                    // Manejar error de placa duplicada
+                    if (vehicleError.code === '23505') {
+                        throw new Error("Este vehículo (Placas o Número de Taxi) ya está registrado en el sistema.");
+                    }
+                    throw vehicleError;
+                }
             }
 
             // Different messages based on role
