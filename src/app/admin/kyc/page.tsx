@@ -15,7 +15,6 @@ import {
     Clock,
     CheckCircle2,
     XCircle,
-    Search,
 } from 'lucide-react';
 
 interface KYCSubmission {
@@ -84,8 +83,6 @@ export default function AdminKYCPage() {
             const vehiclesMap = new Map(
                 vehiclesData?.map(v => [v.user_id, v]) || []
             );
-
-            if (fetchError) throw fetchError;
 
             // Filter to only show pending submissions by joining with users table
             const { data: pendingUsers } = await supabase
@@ -191,33 +188,29 @@ export default function AdminKYCPage() {
     };
 
     return (
-        <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
-            {/* Header */}
-            <header className="bg-white dark:bg-gray-800 shadow-sm">
-                <div className="max-w-7xl mx-auto px-4 py-6">
-                    <div className="flex justify-between items-center">
-                        <div>
-                            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                                Verificaciones KYC
-                            </h1>
-                            <p className="text-gray-600 dark:text-gray-400 text-sm mt-1">
-                                Gestiona las solicitudes de verificación de conductores
-                            </p>
-                        </div>
-                        <button
-                            onClick={fetchSubmissions}
-                            disabled={isLoading}
-                            className="flex items-center gap-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 px-4 py-2 rounded-lg text-gray-700 dark:text-gray-300 transition-colors"
-                        >
-                            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-                            Actualizar
-                        </button>
-                    </div>
+        <div className="space-y-6">
+            {/* Toolbar */}
+            <div className="flex justify-between items-center bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm">
+                <div>
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                        Verificaciones KYC
+                    </h1>
+                    <p className="text-gray-600 dark:text-gray-400 text-sm mt-1">
+                        Gestiona las solicitudes de verificación de conductores
+                    </p>
                 </div>
-            </header>
+                <button
+                    onClick={fetchSubmissions}
+                    disabled={isLoading}
+                    className="flex items-center gap-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 px-4 py-2 rounded-lg text-gray-700 dark:text-gray-300 transition-colors"
+                >
+                    <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+                    Actualizar
+                </button>
+            </div>
 
             {/* Stats */}
-            <div className="max-w-7xl mx-auto px-4 py-6">
+            <div className="">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                     <StatCard
                         icon={<Clock className="w-5 h-5" />}

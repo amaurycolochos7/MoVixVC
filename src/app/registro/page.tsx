@@ -15,7 +15,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Mail, Lock, User, Phone, Car, Package } from "lucide-react";
+import { Loader2, Mail, Lock, User, Phone, Car, Package, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 
 export default function RegistroPage() {
@@ -36,6 +36,7 @@ export default function RegistroPage() {
         vehiclePlate: "",
         taxiNumber: "",
     });
+    const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
 
     const handleChange = (field: string, value: string) => {
@@ -300,14 +301,25 @@ export default function RegistroPage() {
                                 <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                                 <Input
                                     id="password"
-                                    type="password"
+                                    type={showPassword ? "text" : "password"}
                                     placeholder="Mínimo 6 caracteres"
                                     value={formData.password}
                                     onChange={(e) => handleChange("password", e.target.value)}
-                                    className="pl-10"
+                                    className="pl-10 pr-10"
                                     required
                                     minLength={6}
                                 />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute right-3 top-3 text-muted-foreground hover:text-foreground"
+                                >
+                                    {showPassword ? (
+                                        <EyeOff className="h-4 w-4" />
+                                    ) : (
+                                        <Eye className="h-4 w-4" />
+                                    )}
+                                </button>
                             </div>
                         </div>
 
@@ -317,13 +329,24 @@ export default function RegistroPage() {
                                 <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                                 <Input
                                     id="confirmPassword"
-                                    type="password"
+                                    type={showPassword ? "text" : "password"}
                                     placeholder="Repite tu contraseña"
                                     value={formData.confirmPassword}
                                     onChange={(e) => handleChange("confirmPassword", e.target.value)}
-                                    className="pl-10"
+                                    className="pl-10 pr-10"
                                     required
                                 />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute right-3 top-3 text-muted-foreground hover:text-foreground"
+                                >
+                                    {showPassword ? (
+                                        <EyeOff className="h-4 w-4" />
+                                    ) : (
+                                        <Eye className="h-4 w-4" />
+                                    )}
+                                </button>
                             </div>
                         </div>
 

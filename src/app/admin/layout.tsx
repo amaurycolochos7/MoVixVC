@@ -5,20 +5,23 @@ export const metadata: Metadata = {
     title: "MoVix - Admin",
 };
 
+import { AdminHeader } from "@/components/admin/admin-header";
+
 export default function AdminLayout({
     children,
 }: Readonly<{
     children: React.ReactNode;
 }>) {
     return (
-        <>
-            <main className="min-h-screen pb-24 pt-4 px-4 bg-surface-alt">
-                <div className="mx-auto max-w-4xl">
+        <div className="min-h-screen bg-surface-alt flex flex-col">
+            <AdminHeader />
+            <main className="flex-1 pb-24 pt-6 px-4">
+                <div className="mx-auto max-w-7xl">
                     {/* Wider max-width for admin tables */}
                     {children}
                 </div>
             </main>
             <AdminBottomNav />
-        </>
+        </div>
     );
 }
