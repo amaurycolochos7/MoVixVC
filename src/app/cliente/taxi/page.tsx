@@ -47,19 +47,25 @@ export default function TaxiWizardPage() {
 
     // Map picker state
     const [showMapPicker, setShowMapPicker] = useState(false);
+    const [showOriginMapPicker, setShowOriginMapPicker] = useState(false);
     const [destinationCoords, setDestinationCoords] = useState<{ lat: number, lng: number } | null>(null);
+    const [originCoords, setOriginCoords] = useState<{ lat: number, lng: number } | null>(null);
+    const [originText, setOriginText] = useState("");
+
+    // Get effective origin coordinates (manual or GPS)
+    const effectiveOriginCoords = originCoords || locationState.coords;
 
     // Calculate price when destination changes
     useEffect(() => {
-        if (!locationState.coords || !destinationCoords) return;
+        if (!effectiveOriginCoords || !destinationCoords) return;
 
         const calculateDistance = () => {
             const R = 6371; // Earth radius in km
-            const dLat = (destinationCoords.lat - locationState.coords!.lat) * Math.PI / 180;
-            const dLon = (destinationCoords.lng - locationState.coords!.lng) * Math.PI / 180;
+            const dLat = (destinationCoords.lat - effectiveOriginCoords.lat) * Math.PI / 180;
+            const dLon = (destinationCoords.lng - effectiveOriginCoords.lng) * Math.PI / 180;
             const a =
                 Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                Math.cos(locationState.coords!.lat * Math.PI / 180) * Math.cos(destinationCoords.lat * Math.PI / 180) *
+                Math.cos(effectiveOriginCoords.lat * Math.PI / 180) * Math.cos(destinationCoords.lat * Math.PI / 180) *
                 Math.sin(dLon / 2) * Math.sin(dLon / 2);
             const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
             const distance = R * c;
@@ -76,7 +82,7 @@ export default function TaxiWizardPage() {
         };
 
         calculateDistance();
-    }, [locationState.coords, destinationCoords]);
+    }, [effectiveOriginCoords, destinationCoords]);
 
     // Subscribe to offers when request is created
     useEffect(() => {
@@ -209,7 +215,7 @@ export default function TaxiWizardPage() {
     };
 
     // Accept an offer
-    const handleAcceptOffer = async (offerId: string, driverId: string, offered Price: number) => {
+    const handleAcceptOffer = async (offerId: string, driverId: string, offeredPrice: number) => {
         setAcceptingOffer(offerId);
         try {
             await supabase
@@ -286,15 +292,16 @@ export default function TaxiWizardPage() {
         );
     };
 
-    const isFormValid = locationState.status === "success" && destinationCoords !== null;
+    // Valid if we have origin (GPS or manual) AND destination
+    const isFormValid = (locationState.status === "success" || originCoords !== null) && destinationCoords !== null;
 
     const handleSubmit = async () => {
         const requestData = {
             serviceType: "taxi" as const,
             origin: {
-                address: geocodedAddress?.street || "Tu ubicación",
-                lat: locationState.coords?.lat || 0,
-                lng: locationState.coords?.lng || 0,
+                address: originText || geocodedAddress?.street || "Tu ubicación",
+                lat: effectiveOriginCoords?.lat || 0,
+                lng: effectiveOriginCoords?.lng || 0,
                 address_references: originReference,
             },
             destination: {
@@ -450,69 +457,115 @@ export default function TaxiWizardPage() {
             <Card className="p-5 space-y-4">
                 <div className="flex items-center gap-2 text-primary font-semibold">
                     <Navigation className="w-5 h-5" />
-                    <span>Tu ubicación</span>
+                    <span>¿Dónde te recogemos?</span>
                 </div>
 
-                {/* GPS Status */}
-                {locationState.status === "loading" && (
-                    <div className="flex items-center gap-3 p-4 rounded-xl bg-blue-50">
-                        <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
-                        <span className="text-sm text-blue-700">Obteniendo ubicación...</span>
-                    </div>
-                )}
-
-                {locationState.status === "success" && (
-                    <div className="flex items-center gap-3 p-4 rounded-xl bg-green-50">
-                        <CheckCircle2 className="w-5 h-5 text-green-600" />
-                        <div className="flex-1 min-w-0">
-                            {isGeocodingAddress ? (
-                                <span className="text-sm text-green-700">Obteniendo dirección...</span>
-                            ) : geocodedAddress ? (
-                                <div>
-                                    <p className="text-sm font-semibold text-green-800 truncate">
-                                        📍 {geocodedAddress.street || geocodedAddress.neighborhood || "Tu ubicación"}
+                {/* Show selected origin if we have one */}
+                {(originCoords || locationState.status === "success") ? (
+                    <div className="space-y-3">
+                        <div className="p-4 rounded-xl bg-green-50 border border-green-200">
+                            <div className="flex items-start gap-3">
+                                <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-semibold text-green-800">Punto de recogida:</p>
+                                    <p className="text-sm text-green-700 mt-1">
+                                        {originCoords
+                                            ? originText || "Ubicación seleccionada en mapa"
+                                            : geocodedAddress?.street || geocodedAddress?.neighborhood || "Tu ubicación GPS"
+                                        }
                                     </p>
-                                    <p className="text-xs text-green-600 truncate">
-                                        {geocodedAddress.city || geocodedAddress.state}
+                                    <p className="text-xs text-green-600 mt-1">
+                                        {originCoords ? "📍 Seleccionado en mapa" : "📡 Via GPS"}
                                     </p>
                                 </div>
-                            ) : (
-                                <span className="text-sm text-green-700">✓ GPS capturado</span>
-                            )}
+                            </div>
+                        </div>
+
+                        {/* Change origin buttons */}
+                        <div className="flex gap-2">
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className="flex-1 text-xs"
+                                onClick={() => {
+                                    setOriginCoords(null);
+                                    setOriginText("");
+                                    setLocationState({ status: "idle", coords: null, error: null });
+                                    setGeocodedAddress(null);
+                                }}
+                            >
+                                Cambiar ubicación
+                            </Button>
+                        </div>
+
+                        {/* Reference field */}
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-gray-700">
+                                Referencias para el conductor (opcional):
+                            </label>
+                            <Textarea
+                                placeholder='Ej: "Frente al Oxxo", "Casa azul con portón negro"'
+                                value={originReference}
+                                onChange={(e) => setOriginReference(e.target.value)}
+                                rows={2}
+                                className="resize-none"
+                            />
                         </div>
                     </div>
-                )}
+                ) : (
+                    <div className="space-y-3">
+                        <p className="text-sm text-gray-600">
+                            Selecciona dónde te van a recoger
+                        </p>
 
-                {locationState.status === "error" && (
-                    <div className="flex items-center gap-3 p-4 rounded-xl bg-red-50">
-                        <MapPin className="w-5 h-5 text-red-500 flex-shrink-0" />
-                        <span className="text-sm text-red-600 flex-1">{locationState.error}</span>
-                        <Button size="sm" variant="outline" onClick={requestLocation}>
-                            Reintentar
-                        </Button>
-                    </div>
-                )}
+                        {/* GPS Loading state */}
+                        {locationState.status === "loading" && (
+                            <div className="flex items-center gap-3 p-4 rounded-xl bg-blue-50">
+                                <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
+                                <span className="text-sm text-blue-700">Obteniendo ubicación...</span>
+                            </div>
+                        )}
 
-                {locationState.status === "idle" && (
-                    <Button className="w-full h-14" size="lg" onClick={requestLocation}>
-                        <MapPin className="w-5 h-5 mr-2" />
-                        Compartir mi ubicación actual
-                    </Button>
-                )}
+                        {/* GPS Error state */}
+                        {locationState.status === "error" && (
+                            <div className="flex items-center gap-3 p-4 rounded-xl bg-red-50 mb-3">
+                                <MapPin className="w-5 h-5 text-red-500 flex-shrink-0" />
+                                <span className="text-sm text-red-600 flex-1">{locationState.error}</span>
+                            </div>
+                        )}
 
-                {/* Reference field - only show if GPS obtained */}
-                {locationState.status === "success" && (
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium text-gray-700">
-                            Referencias (opcional):
-                        </label>
-                        <Textarea
-                            placeholder='Ej: "Frente al Oxxo", "Casa azul con portón negro"'
-                            value={originReference}
-                            onChange={(e) => setOriginReference(e.target.value)}
-                            rows={2}
-                            className="resize-none"
-                        />
+                        {/* Two options: GPS or Manual */}
+                        {locationState.status !== "loading" && (
+                            <div className="grid grid-cols-1 gap-3">
+                                {/* GPS Auto button */}
+                                <Button
+                                    className="w-full h-14"
+                                    size="lg"
+                                    onClick={requestLocation}
+                                >
+                                    <Navigation className="w-5 h-5 mr-2" />
+                                    Usar mi ubicación actual (GPS)
+                                </Button>
+
+                                {/* Divider */}
+                                <div className="flex items-center gap-3">
+                                    <div className="h-px bg-gray-200 flex-1" />
+                                    <span className="text-xs text-gray-400 font-medium">O</span>
+                                    <div className="h-px bg-gray-200 flex-1" />
+                                </div>
+
+                                {/* Manual map button */}
+                                <Button
+                                    className="w-full h-14"
+                                    size="lg"
+                                    variant="outline"
+                                    onClick={() => setShowOriginMapPicker(true)}
+                                >
+                                    <MapPin className="w-5 h-5 mr-2" />
+                                    Seleccionar en el mapa
+                                </Button>
+                            </div>
+                        )}
                     </div>
                 )}
             </Card>
@@ -615,8 +668,8 @@ export default function TaxiWizardPage() {
                     <button
                         onClick={() => setPaymentMethod('cash')}
                         className={`w-full p-4 rounded-xl border-2 transition-all flex items-center justify-between ${paymentMethod === 'cash'
-                                ? 'border-primary bg-primary/5'
-                                : 'border-gray-200 hover:border-gray-300'
+                            ? 'border-primary bg-primary/5'
+                            : 'border-gray-200 hover:border-gray-300'
                             }`}
                     >
                         <div className="flex items-center gap-3">
@@ -687,21 +740,34 @@ export default function TaxiWizardPage() {
 
             {!isFormValid && (
                 <p className="text-xs text-center text-gray-500">
-                    {!locationState.coords && "📍 Comparte tu ubicación para continuar"}
-                    {locationState.coords && !destinationCoords && "🎯 Selecciona tu destino en el mapa"}
+                    {!effectiveOriginCoords && "📍 Selecciona dónde te recogen"}
+                    {effectiveOriginCoords && !destinationCoords && "🎯 Selecciona tu destino en el mapa"}
                 </p>
             )}
 
-            {/* Map Picker Modal */}
+            {/* Destination Map Picker Modal */}
             {showMapPicker && (
                 <LocationPickerMap
-                    initialLocation={destinationCoords || locationState.coords}
+                    initialLocation={destinationCoords || effectiveOriginCoords}
                     onConfirm={(loc) => {
                         setDestinationText(loc.placeName);
                         setDestinationCoords(loc.coords);
                         setShowMapPicker(false);
                     }}
                     onCancel={() => setShowMapPicker(false)}
+                />
+            )}
+
+            {/* Origin Map Picker Modal */}
+            {showOriginMapPicker && (
+                <LocationPickerMap
+                    initialLocation={originCoords || locationState.coords}
+                    onConfirm={(loc) => {
+                        setOriginText(loc.placeName);
+                        setOriginCoords(loc.coords);
+                        setShowOriginMapPicker(false);
+                    }}
+                    onCancel={() => setShowOriginMapPicker(false)}
                 />
             )}
         </div>
