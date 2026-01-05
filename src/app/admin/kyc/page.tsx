@@ -15,6 +15,7 @@ import {
     Clock,
     CheckCircle2,
     XCircle,
+    Trash2,
 } from 'lucide-react';
 
 interface KYCSubmission {
@@ -44,6 +45,7 @@ export default function AdminKYCPage() {
     const [error, setError] = useState<string | null>(null);
     const [processingId, setProcessingId] = useState<string | null>(null);
     const [rejectModal, setRejectModal] = useState<{ userId: string; name: string } | null>(null);
+    const [deleteModal, setDeleteModal] = useState<{ userId: string; name: string } | null>(null);
     const [rejectReason, setRejectReason] = useState('');
     const [stats, setStats] = useState({ pending: 0, approved: 0, rejected: 0 });
 
@@ -172,6 +174,32 @@ export default function AdminKYCPage() {
             await fetchSubmissions();
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Error al rechazar');
+        } finally {
+            setProcessingId(null);
+        }
+    };
+
+    const handleDeleteUser = async () => {
+        if (!deleteModal) return;
+
+        setProcessingId(deleteModal.userId);
+
+        try {
+            const { data: { user: admin } } = await supabase.auth.getUser();
+            if (!admin) throw new Error('No autenticado');
+
+            const { data, error } = await supabase.rpc('delete_user_permanently', {
+                p_user_id: deleteModal.userId,
+                p_admin_id: admin.id,
+            });
+
+            if (error) throw error;
+            if (!data.success) throw new Error(data.error);
+
+            setDeleteModal(null);
+            await fetchSubmissions();
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Error al eliminar usuario');
         } finally {
             setProcessingId(null);
         }
@@ -357,6 +385,17 @@ export default function AdminKYCPage() {
                                                     <X className="w-4 h-4" />
                                                     Rechazar
                                                 </button>
+                                                <button
+                                                    onClick={() => setDeleteModal({
+                                                        userId: submission.user_id,
+                                                        name: submission.user.full_name,
+                                                    })}
+                                                    disabled={processingId === submission.user_id}
+                                                    className="inline-flex items-center gap-1 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                                                    title="Eliminar usuario permanentemente"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
                                             </div>
                                         </td>
                                     </tr>
@@ -406,6 +445,44 @@ export default function AdminKYCPage() {
                                     <X className="w-4 h-4" />
                                 )}
                                 Confirmar rechazo
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Delete Modal */}
+            {deleteModal && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white dark:bg-gray-800 rounded-xl max-w-md w-full p-6">
+                        <div className="flex items-center gap-3 text-red-600 mb-4">
+                            <Trash2 className="w-6 h-6" />
+                            <h3 className="text-lg font-semibold">Eliminar Usuario</h3>
+                        </div>
+                        <p className="text-gray-600 dark:text-gray-400 text-sm mb-6">
+                            ¿Estás seguro que deseas eliminar permanentemente a <strong>{deleteModal.name}</strong>?
+                            <br /><br />
+                            <span className="text-red-600 font-medium">Esta acción no se puede deshacer.</span>
+                            Se eliminarán todos sus datos, incluyendo vehículo y documentos.
+                        </p>
+                        <div className="flex justify-end gap-3">
+                            <button
+                                onClick={() => setDeleteModal(null)}
+                                className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={handleDeleteUser}
+                                disabled={processingId === deleteModal.userId}
+                                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
+                            >
+                                {processingId === deleteModal.userId ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                    <Trash2 className="w-4 h-4" />
+                                )}
+                                Eliminar permanentemente
                             </button>
                         </div>
                     </div>
