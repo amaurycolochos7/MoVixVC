@@ -16,6 +16,9 @@ import {
     CheckCircle2,
     XCircle,
     Trash2,
+    Car,
+    Phone,
+    Mail,
 } from 'lucide-react';
 
 interface KYCSubmission {
@@ -56,27 +59,17 @@ export default function AdminKYCPage() {
         setError(null);
 
         try {
-            // Get pending KYC submissions with user data AND vehicle data
-            const { data, error: fetchError } = await supabase
-                .from('kyc_submissions')
-                .select(`
-          id,
-          user_id,
-          drive_folder_url,
-          created_at,
-          user:users!user_id (
-            full_name,
-            email,
-            phone,
-            role,
-            kyc_submitted_at
-          )
-        `)
+            // Get pending drivers from users table (don't require kyc_submissions)
+            const { data: pendingDrivers, error: fetchError } = await supabase
+                .from('users')
+                .select('*')
+                .in('role', ['taxi', 'mandadito'])
+                .eq('kyc_status', 'pending')
                 .order('created_at', { ascending: true });
 
             if (fetchError) throw fetchError;
 
-            // Fetch vehicle data for all users
+            // Fetch vehicle data for all drivers
             const { data: vehiclesData } = await supabase
                 .from('driver_vehicles')
                 .select('user_id, brand, model, color, plate_number, taxi_number');
@@ -86,21 +79,32 @@ export default function AdminKYCPage() {
                 vehiclesData?.map(v => [v.user_id, v]) || []
             );
 
-            // Filter to only show pending submissions by joining with users table
-            const { data: pendingUsers } = await supabase
-                .from('users')
-                .select('id')
-                .eq('kyc_status', 'pending');
+            // Fetch KYC submissions (optional - only if they uploaded documents)
+            const { data: kycSubmissions } = await supabase
+                .from('kyc_submissions')
+                .select('user_id, drive_folder_url, created_at');
 
-            const pendingUserIds = new Set(pendingUsers?.map(u => u.id) || []);
-            const pendingSubmissions = (data as unknown as KYCSubmission[])
-                ?.filter(s => pendingUserIds.has(s.user_id))
-                ?.map(s => ({
-                    ...s,
-                    vehicle: vehiclesMap.get(s.user_id) || null
-                })) || [];
+            const kycMap = new Map(
+                kycSubmissions?.map(k => [k.user_id, k]) || []
+            );
 
-            setSubmissions(pendingSubmissions);
+            // Transform pending drivers to match the interface
+            const transformedSubmissions: KYCSubmission[] = (pendingDrivers || []).map(driver => ({
+                id: driver.id,
+                user_id: driver.id,
+                drive_folder_url: kycMap.get(driver.id)?.drive_folder_url || '#', //# if no documents uploaded
+                created_at: kycMap.get(driver.id)?.created_at || driver.created_at,
+                user: {
+                    full_name: driver.full_name,
+                    email: driver.email,
+                    phone: driver.phone,
+                    role: driver.role,
+                    kyc_submitted_at: driver.kyc_submitted_at || driver.created_at,
+                },
+                vehicle: vehiclesMap.get(driver.id) || null,
+            }));
+
+            setSubmissions(transformedSubmissions);
 
             // Get stats
             const { data: statsData } = await supabase
@@ -217,203 +221,221 @@ export default function AdminKYCPage() {
 
     return (
         <div className="space-y-6">
-            {/* Toolbar */}
-            <div className="flex justify-between items-center bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm">
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                    <h1 className="text-3xl font-bold text-gray-900">
                         Verificaciones KYC
                     </h1>
-                    <p className="text-gray-600 dark:text-gray-400 text-sm mt-1">
+                    <p className="text-gray-600 mt-1">
                         Gestiona las solicitudes de verificación de conductores
                     </p>
                 </div>
                 <button
                     onClick={fetchSubmissions}
                     disabled={isLoading}
-                    className="flex items-center gap-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 px-4 py-2 rounded-lg text-gray-700 dark:text-gray-300 transition-colors"
+                    className="flex items-center gap-2 bg-white hover:bg-gray-50 px-4 py-2.5 rounded-lg border-2 border-gray-200 hover:border-indigo-300 text-gray-700 transition-all shadow-sm hover:shadow"
                 >
                     <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-                    Actualizar
+                    <span className="font-medium">Actualizar</span>
                 </button>
             </div>
 
-            {/* Stats */}
-            <div className="">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                    <StatCard
-                        icon={<Clock className="w-5 h-5" />}
-                        label="Pendientes"
-                        value={stats.pending}
-                        color="yellow"
-                    />
-                    <StatCard
-                        icon={<CheckCircle2 className="w-5 h-5" />}
-                        label="Aprobados"
-                        value={stats.approved}
-                        color="green"
-                    />
-                    <StatCard
-                        icon={<XCircle className="w-5 h-5" />}
-                        label="Rechazados"
-                        value={stats.rejected}
-                        color="red"
-                    />
+            {/* Stats Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-gradient-to-br from-amber-50 to-white border-2 border-amber-200 rounded-xl p-6 shadow-sm">
+                    <div className="flex items-center gap-4">
+                        <div className="p-3 bg-amber-100 rounded-xl">
+                            <Clock className="w-6 h-6 text-amber-600" />
+                        </div>
+                        <div>
+                            <p className="text-sm text-gray-600 font-medium">Pendientes</p>
+                            <p className="text-3xl font-bold text-amber-600">{stats.pending}</p>
+                        </div>
+                    </div>
                 </div>
 
-                {/* Error message */}
-                {error && (
-                    <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6">
-                        <p className="text-red-700 dark:text-red-300">{error}</p>
+                <div className="bg-gradient-to-br from-green-50 to-white border-2 border-green-200 rounded-xl p-6 shadow-sm">
+                    <div className="flex items-center gap-4">
+                        <div className="p-3 bg-green-100 rounded-xl">
+                            <CheckCircle2 className="w-6 h-6 text-green-600" />
+                        </div>
+                        <div>
+                            <p className="text-sm text-gray-600 font-medium">Aprobados</p>
+                            <p className="text-3xl font-bold text-green-600">{stats.approved}</p>
+                        </div>
                     </div>
-                )}
+                </div>
 
-                {/* Loading state */}
-                {isLoading ? (
-                    <div className="flex items-center justify-center py-12">
-                        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+                <div className="bg-gradient-to-br from-red-50 to-white border-2 border-red-200 rounded-xl p-6 shadow-sm">
+                    <div className="flex items-center gap-4">
+                        <div className="p-3 bg-red-100 rounded-xl">
+                            <XCircle className="w-6 h-6 text-red-600" />
+                        </div>
+                        <div>
+                            <p className="text-sm text-gray-600 font-medium">Rechazados</p>
+                            <p className="text-3xl font-bold text-red-600">{stats.rejected}</p>
+                        </div>
                     </div>
-                ) : submissions.length === 0 ? (
-                    /* Empty state */
-                    <div className="bg-white dark:bg-gray-800 rounded-xl p-12 text-center">
-                        <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                        <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                            No hay verificaciones pendientes
-                        </h3>
-                        <p className="text-gray-600 dark:text-gray-400">
-                            Todas las solicitudes de verificación han sido procesadas.
-                        </p>
-                    </div>
-                ) : (
-                    /* Submissions list */
-                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden">
-                        <table className="w-full">
-                            <thead className="bg-gray-50 dark:bg-gray-700">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                        Conductor
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                        Tipo
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                        Enviado
-                                    </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                        Documentos
-                                    </th>
-                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                        Acciones
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                                {submissions.map((submission) => (
-                                    <tr key={submission.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <div>
-                                                <div className="font-medium text-gray-900 dark:text-white">
-                                                    {submission.user.full_name}
-                                                </div>
-                                                <div className="text-sm text-gray-500 dark:text-gray-400">
-                                                    {submission.user.email}
-                                                </div>
-                                                {submission.user.phone && (
-                                                    <div className="text-sm text-gray-500 dark:text-gray-400">
-                                                        📱 {submission.user.phone}
-                                                    </div>
-                                                )}
-                                                {submission.vehicle && (
-                                                    <div className="mt-2 text-xs text-gray-600 dark:text-gray-400 space-y-0.5">
-                                                        <div className="font-medium text-gray-700 dark:text-gray-300">🚗 Vehículo:</div>
-                                                        <div>{submission.vehicle.brand} {submission.vehicle.model}</div>
-                                                        <div>Color: {submission.vehicle.color}</div>
-                                                        <div>Placas: {submission.vehicle.plate_number}</div>
-                                                        <div>Taxi #: {submission.vehicle.taxi_number}</div>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <span
-                                                className={`
-                          inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                          ${submission.user.role === 'taxi'
-                                                        ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
-                                                        : 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400'
-                                                    }
-                        `}
-                                            >
-                                                {submission.user.role === 'taxi' ? 'Taxi' : 'Mandadito'}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                                            {formatDate(submission.created_at)}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <a
-                                                href={submission.drive_folder_url}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 text-sm font-medium"
-                                            >
-                                                <ExternalLink className="w-4 h-4" />
-                                                Ver en Drive
-                                            </a>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-right">
-                                            <div className="flex items-center justify-end gap-2">
-                                                <button
-                                                    onClick={() => handleApprove(submission.user_id)}
-                                                    disabled={processingId === submission.user_id}
-                                                    className="inline-flex items-center gap-1 bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
-                                                >
-                                                    {processingId === submission.user_id ? (
-                                                        <Loader2 className="w-4 h-4 animate-spin" />
-                                                    ) : (
-                                                        <Check className="w-4 h-4" />
-                                                    )}
-                                                    Aprobar
-                                                </button>
-                                                <button
-                                                    onClick={() => setRejectModal({
-                                                        userId: submission.user_id,
-                                                        name: submission.user.full_name,
-                                                    })}
-                                                    disabled={processingId === submission.user_id}
-                                                    className="inline-flex items-center gap-1 bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
-                                                >
-                                                    <X className="w-4 h-4" />
-                                                    Rechazar
-                                                </button>
-                                                <button
-                                                    onClick={() => setDeleteModal({
-                                                        userId: submission.user_id,
-                                                        name: submission.user.full_name,
-                                                    })}
-                                                    disabled={processingId === submission.user_id}
-                                                    className="inline-flex items-center gap-1 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
-                                                    title="Eliminar usuario permanentemente"
-                                                >
-                                                    <Trash2 className="w-4 h-4" />
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                )}
+                </div>
             </div>
+
+            {/* Error message */}
+            {error && (
+                <div className="bg-red-50 border-2 border-red-200 rounded-xl p-4">
+                    <p className="text-red-700 font-medium">{error}</p>
+                </div>
+            )}
+
+            {/* Loading state */}
+            {isLoading ? (
+                <div className="flex items-center justify-center py-20 bg-white rounded-xl border-2 border-gray-100">
+                    <div className="text-center">
+                        <Loader2 className="w-10 h-10 animate-spin text-indigo-600 mx-auto mb-4" />
+                        <p className="text-gray-600">Cargando verificaciones...</p>
+                    </div>
+                </div>
+            ) : submissions.length === 0 ? (
+                /* Empty state */
+                <div className="bg-white rounded-xl border-2 border-dashed border-gray-300 p-16 text-center">
+                    <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                    <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                        No hay verificaciones pendientes
+                    </h3>
+                    <p className="text-gray-600">
+                        Todas las solicitudes de verificación han sido procesadas.
+                    </p>
+                </div>
+            ) : (
+                /* Submissions Grid */
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {submissions.map((submission) => (
+                        <div
+                            key={submission.id}
+                            className="bg-white rounded-xl border-2 border-gray-200 hover:border-indigo-300 hover:shadow-lg transition-all p-6"
+                        >
+                            {/* Header */}
+                            <div className="flex items-start justify-between mb-4">
+                                <div className="flex-1">
+                                    <h3 className="font-bold text-lg text-gray-900 mb-1">
+                                        {submission.user.full_name}
+                                    </h3>
+                                    <div className="space-y-1">
+                                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                                            <Mail className="w-4 h-4" />
+                                            {submission.user.email}
+                                        </div>
+                                        {submission.user.phone && (
+                                            <div className="flex items-center gap-2 text-sm text-gray-600">
+                                                <Phone className="w-4 h-4" />
+                                                {submission.user.phone}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                                <span
+                                    className={`
+                                        px-3 py-1 rounded-full text-xs font-semibold
+                                        ${submission.user.role === 'taxi'
+                                            ? 'bg-blue-100 text-blue-700'
+                                            : 'bg-purple-100 text-purple-700'
+                                        }
+                                    `}
+                                >
+                                    {submission.user.role === 'taxi' ? 'Taxi' : 'Mandadito'}
+                                </span>
+                            </div>
+
+                            {/* Vehicle Info */}
+                            {submission.vehicle && (
+                                <div className="bg-gray-50 rounded-lg p-4 mb-4 border border-gray-200">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <Car className="w-4 h-4 text-gray-600" />
+                                        <span className="font-semibold text-sm text-gray-700">Información del Vehículo</span>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                                        <div className="text-gray-600">Modelo:</div>
+                                        <div className="font-medium text-gray-900">{submission.vehicle.brand} {submission.vehicle.model}</div>
+                                        <div className="text-gray-600">Color:</div>
+                                        <div className="font-medium text-gray-900">{submission.vehicle.color}</div>
+                                        <div className="text-gray-600">Placas:</div>
+                                        <div className="font-medium text-gray-900">{submission.vehicle.plate_number}</div>
+                                        <div className="text-gray-600">Taxi #:</div>
+                                        <div className="font-medium text-gray-900">{submission.vehicle.taxi_number}</div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Metadata */}
+                            <div className="flex items-center justify-between mb-4 pb-4 border-b border-gray-200">
+                                <div className="text-sm text-gray-500">
+                                    Registrado: {formatDate(submission.created_at)}
+                                </div>
+                                {submission.drive_folder_url !== '#' ? (
+                                    <a
+                                        href={submission.drive_folder_url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-700 text-sm font-medium hover:underline"
+                                    >
+                                        <ExternalLink className="w-4 h-4" />
+                                        Ver documentos
+                                    </a>
+                                ) : (
+                                    <span className="text-sm text-gray-400 italic">Sin documentos</span>
+                                )}
+                            </div>
+
+                            {/* Actions */}
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => handleApprove(submission.user_id)}
+                                    disabled={processingId === submission.user_id}
+                                    className="flex-1 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-300 text-white px-4 py-2.5 rounded-lg font-medium transition-colors shadow-sm"
+                                >
+                                    {processingId === submission.user_id ? (
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                    ) : (
+                                        <Check className="w-4 h-4" />
+                                    )}
+                                    Aprobar
+                                </button>
+                                <button
+                                    onClick={() => setRejectModal({
+                                        userId: submission.user_id,
+                                        name: submission.user.full_name,
+                                    })}
+                                    disabled={processingId === submission.user_id}
+                                    className="flex-1 flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-300 text-white px-4 py-2.5 rounded-lg font-medium transition-colors shadow-sm"
+                                >
+                                    <X className="w-4 h-4" />
+                                    Rechazar
+                                </button>
+                                <button
+                                    onClick={() => setDeleteModal({
+                                        userId: submission.user_id,
+                                        name: submission.user.full_name,
+                                    })}
+                                    disabled={processingId === submission.user_id}
+                                    className="flex items-center justify-center bg-gray-100 hover:bg-gray-200 disabled:bg-gray-50 text-gray-700 px-3 py-2.5 rounded-lg transition-colors"
+                                    title="Eliminar usuario permanentemente"
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
 
             {/* Reject Modal */}
             {rejectModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white dark:bg-gray-800 rounded-xl max-w-md w-full p-6">
-                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
+                        <h3 className="text-xl font-bold text-gray-900 mb-2">
                             Rechazar verificación
                         </h3>
-                        <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
+                        <p className="text-gray-600 text-sm mb-4">
                             Rechazar la verificación de <strong>{rejectModal.name}</strong>.
                             Opcionalmente puedes agregar un motivo.
                         </p>
@@ -421,7 +443,7 @@ export default function AdminKYCPage() {
                             value={rejectReason}
                             onChange={(e) => setRejectReason(e.target.value)}
                             placeholder="Motivo del rechazo (opcional)"
-                            className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-3 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                            className="w-full border-2 border-gray-200 rounded-lg p-3 text-sm focus:ring-2 focus:ring-red-500 focus:border-transparent resize-none"
                             rows={3}
                         />
                         <div className="flex justify-end gap-3 mt-4">
@@ -430,14 +452,14 @@ export default function AdminKYCPage() {
                                     setRejectModal(null);
                                     setRejectReason('');
                                 }}
-                                className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                                className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors font-medium"
                             >
                                 Cancelar
                             </button>
                             <button
                                 onClick={handleReject}
                                 disabled={processingId === rejectModal.userId}
-                                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
+                                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center gap-2 shadow-sm"
                             >
                                 {processingId === rejectModal.userId ? (
                                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -453,29 +475,30 @@ export default function AdminKYCPage() {
 
             {/* Delete Modal */}
             {deleteModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white dark:bg-gray-800 rounded-xl max-w-md w-full p-6">
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
                         <div className="flex items-center gap-3 text-red-600 mb-4">
                             <Trash2 className="w-6 h-6" />
-                            <h3 className="text-lg font-semibold">Eliminar Usuario</h3>
+                            <h3 className="text-xl font-bold">Eliminar Usuario</h3>
                         </div>
-                        <p className="text-gray-600 dark:text-gray-400 text-sm mb-6">
+                        <p className="text-gray-600 text-sm mb-6">
                             ¿Estás seguro que deseas eliminar permanentemente a <strong>{deleteModal.name}</strong>?
                             <br /><br />
-                            <span className="text-red-600 font-medium">Esta acción no se puede deshacer.</span>
+                            <span className="text-red-600 font-semibold">Esta acción no se puede deshacer.</span>
+                            <br />
                             Se eliminarán todos sus datos, incluyendo vehículo y documentos.
                         </p>
                         <div className="flex justify-end gap-3">
                             <button
                                 onClick={() => setDeleteModal(null)}
-                                className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                                className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors font-medium"
                             >
                                 Cancelar
                             </button>
                             <button
                                 onClick={handleDeleteUser}
                                 disabled={processingId === deleteModal.userId}
-                                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
+                                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center gap-2 shadow-sm"
                             >
                                 {processingId === deleteModal.userId ? (
                                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -488,34 +511,6 @@ export default function AdminKYCPage() {
                     </div>
                 </div>
             )}
-        </div>
-    );
-}
-
-// Stat card component
-interface StatCardProps {
-    icon: React.ReactNode;
-    label: string;
-    value: number;
-    color: 'yellow' | 'green' | 'red';
-}
-
-function StatCard({ icon, label, value, color }: StatCardProps) {
-    const colors = {
-        yellow: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400',
-        green: 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400',
-        red: 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400',
-    };
-
-    return (
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-4 flex items-center gap-4">
-            <div className={`w-12 h-12 rounded-full flex items-center justify-center ${colors[color]}`}>
-                {icon}
-            </div>
-            <div>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">{value}</p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">{label}</p>
-            </div>
         </div>
     );
 }

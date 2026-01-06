@@ -13,11 +13,10 @@ export default function AdminLayout({
     children: React.ReactNode;
 }>) {
     return (
-        <div className="min-h-screen bg-surface-alt flex flex-col">
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50 flex flex-col">
             <AdminHeader />
-            <main className="flex-1 pb-24 pt-6 px-4">
+            <main className="flex-1 pb-24 pt-8 px-4 md:px-6">
                 <div className="mx-auto max-w-7xl">
-                    {/* Wider max-width for admin tables */}
                     {children}
                 </div>
             </main>
