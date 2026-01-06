@@ -40,6 +40,8 @@ interface KYCSubmission {
         plate_number: string;
         taxi_number: string;
     } | null;
+    kyc_rejection_reason?: string | null;
+    kyc_reviewed_at?: string | null;
 }
 
 export default function AdminKYCPage() {
@@ -51,6 +53,7 @@ export default function AdminKYCPage() {
     const [deleteModal, setDeleteModal] = useState<{ userId: string; name: string } | null>(null);
     const [rejectReason, setRejectReason] = useState('');
     const [stats, setStats] = useState({ pending: 0, approved: 0, rejected: 0 });
+    const [activeFilter, setActiveFilter] = useState<'pending' | 'approved' | 'rejected'>('pending');
 
     const supabase = createClient();
 
@@ -59,12 +62,12 @@ export default function AdminKYCPage() {
         setError(null);
 
         try {
-            // Get pending drivers from users table (don't require kyc_submissions)
-            const { data: pendingDrivers, error: fetchError } = await supabase
+            // Get drivers from users table based on active filter
+            const { data: drivers, error: fetchError } = await supabase
                 .from('users')
                 .select('*')
                 .in('role', ['taxi', 'mandadito'])
-                .eq('kyc_status', 'pending')
+                .eq('kyc_status', activeFilter)
                 .order('created_at', { ascending: true });
 
             if (fetchError) throw fetchError;
@@ -88,11 +91,11 @@ export default function AdminKYCPage() {
                 kycSubmissions?.map(k => [k.user_id, k]) || []
             );
 
-            // Transform pending drivers to match the interface
-            const transformedSubmissions: KYCSubmission[] = (pendingDrivers || []).map(driver => ({
+            // Transform drivers to match the interface
+            const transformedSubmissions: KYCSubmission[] = (drivers || []).map(driver => ({
                 id: driver.id,
                 user_id: driver.id,
-                drive_folder_url: kycMap.get(driver.id)?.drive_folder_url || '#', //# if no documents uploaded
+                drive_folder_url: kycMap.get(driver.id)?.drive_folder_url || '#',
                 created_at: kycMap.get(driver.id)?.created_at || driver.created_at,
                 user: {
                     full_name: driver.full_name,
@@ -102,11 +105,13 @@ export default function AdminKYCPage() {
                     kyc_submitted_at: driver.kyc_submitted_at || driver.created_at,
                 },
                 vehicle: vehiclesMap.get(driver.id) || null,
+                kyc_rejection_reason: driver.kyc_rejection_reason, // Include rejection reason
+                kyc_reviewed_at: driver.kyc_reviewed_at, // Include review date
             }));
 
             setSubmissions(transformedSubmissions);
 
-            // Get stats
+            // Get stats (only fetch once, not affected by filter)
             const { data: statsData } = await supabase
                 .from('users')
                 .select('kyc_status')
@@ -125,7 +130,7 @@ export default function AdminKYCPage() {
         } finally {
             setIsLoading(false);
         }
-    }, [supabase]);
+    }, [supabase, activeFilter]);
 
     useEffect(() => {
         fetchSubmissions();
@@ -243,9 +248,15 @@ export default function AdminKYCPage() {
 
             {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-gradient-to-br from-amber-50 to-white border-2 border-amber-200 rounded-xl p-6 shadow-sm">
+                <button
+                    onClick={() => setActiveFilter('pending')}
+                    className={`text-left transition-all ${activeFilter === 'pending'
+                        ? 'bg-gradient-to-br from-amber-50 to-white border-2 border-amber-400 shadow-lg scale-105'
+                        : 'bg-gradient-to-br from-amber-50 to-white border-2 border-amber-200 shadow-sm hover:shadow-md hover:border-amber-300'
+                        } rounded-xl p-6 cursor-pointer`}
+                >
                     <div className="flex items-center gap-4">
-                        <div className="p-3 bg-amber-100 rounded-xl">
+                        <div className={`p-3 rounded-xl ${activeFilter === 'pending' ? 'bg-amber-200' : 'bg-amber-100'}`}>
                             <Clock className="w-6 h-6 text-amber-600" />
                         </div>
                         <div>
@@ -253,11 +264,22 @@ export default function AdminKYCPage() {
                             <p className="text-3xl font-bold text-amber-600">{stats.pending}</p>
                         </div>
                     </div>
-                </div>
+                    {activeFilter === 'pending' && (
+                        <div className="mt-2 text-xs text-amber-700 font-medium">
+                            ✓ Mostrando pendientes
+                        </div>
+                    )}
+                </button>
 
-                <div className="bg-gradient-to-br from-green-50 to-white border-2 border-green-200 rounded-xl p-6 shadow-sm">
+                <button
+                    onClick={() => setActiveFilter('approved')}
+                    className={`text-left transition-all ${activeFilter === 'approved'
+                        ? 'bg-gradient-to-br from-green-50 to-white border-2 border-green-400 shadow-lg scale-105'
+                        : 'bg-gradient-to-br from-green-50 to-white border-2 border-green-200 shadow-sm hover:shadow-md hover:border-green-300'
+                        } rounded-xl p-6 cursor-pointer`}
+                >
                     <div className="flex items-center gap-4">
-                        <div className="p-3 bg-green-100 rounded-xl">
+                        <div className={`p-3 rounded-xl ${activeFilter === 'approved' ? 'bg-green-200' : 'bg-green-100'}`}>
                             <CheckCircle2 className="w-6 h-6 text-green-600" />
                         </div>
                         <div>
@@ -265,11 +287,22 @@ export default function AdminKYCPage() {
                             <p className="text-3xl font-bold text-green-600">{stats.approved}</p>
                         </div>
                     </div>
-                </div>
+                    {activeFilter === 'approved' && (
+                        <div className="mt-2 text-xs text-green-700 font-medium">
+                            ✓ Mostrando aprobados
+                        </div>
+                    )}
+                </button>
 
-                <div className="bg-gradient-to-br from-red-50 to-white border-2 border-red-200 rounded-xl p-6 shadow-sm">
+                <button
+                    onClick={() => setActiveFilter('rejected')}
+                    className={`text-left transition-all ${activeFilter === 'rejected'
+                        ? 'bg-gradient-to-br from-red-50 to-white border-2 border-red-400 shadow-lg scale-105'
+                        : 'bg-gradient-to-br from-red-50 to-white border-2 border-red-200 shadow-sm hover:shadow-md hover:border-red-300'
+                        } rounded-xl p-6 cursor-pointer`}
+                >
                     <div className="flex items-center gap-4">
-                        <div className="p-3 bg-red-100 rounded-xl">
+                        <div className={`p-3 rounded-xl ${activeFilter === 'rejected' ? 'bg-red-200' : 'bg-red-100'}`}>
                             <XCircle className="w-6 h-6 text-red-600" />
                         </div>
                         <div>
@@ -277,7 +310,12 @@ export default function AdminKYCPage() {
                             <p className="text-3xl font-bold text-red-600">{stats.rejected}</p>
                         </div>
                     </div>
-                </div>
+                    {activeFilter === 'rejected' && (
+                        <div className="mt-2 text-xs text-red-700 font-medium">
+                            ✓ Mostrando rechazados
+                        </div>
+                    )}
+                </button>
             </div>
 
             {/* Error message */}
@@ -386,43 +424,67 @@ export default function AdminKYCPage() {
                                 )}
                             </div>
 
-                            {/* Actions */}
-                            <div className="flex gap-2">
-                                <button
-                                    onClick={() => handleApprove(submission.user_id)}
-                                    disabled={processingId === submission.user_id}
-                                    className="flex-1 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-300 text-white px-4 py-2.5 rounded-lg font-medium transition-colors shadow-sm"
-                                >
-                                    {processingId === submission.user_id ? (
-                                        <Loader2 className="w-4 h-4 animate-spin" />
-                                    ) : (
-                                        <Check className="w-4 h-4" />
+                            {/* Rejection Reason (only for rejected) */}
+                            {activeFilter === 'rejected' && submission.kyc_rejection_reason && (
+                                <div className="mb-4 p-4 bg-red-50 border-l-4 border-red-400 rounded">
+                                    <p className="text-sm font-semibold text-red-900 mb-1">Motivo de rechazo:</p>
+                                    <p className="text-sm text-red-700">{submission.kyc_rejection_reason}</p>
+                                    {submission.kyc_reviewed_at && (
+                                        <p className="text-xs text-red-600 mt-2">
+                                            Rechazado: {formatDate(submission.kyc_reviewed_at)}
+                                        </p>
                                     )}
-                                    Aprobar
-                                </button>
-                                <button
-                                    onClick={() => setRejectModal({
-                                        userId: submission.user_id,
-                                        name: submission.user.full_name,
-                                    })}
-                                    disabled={processingId === submission.user_id}
-                                    className="flex-1 flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-300 text-white px-4 py-2.5 rounded-lg font-medium transition-colors shadow-sm"
-                                >
-                                    <X className="w-4 h-4" />
-                                    Rechazar
-                                </button>
-                                <button
-                                    onClick={() => setDeleteModal({
-                                        userId: submission.user_id,
-                                        name: submission.user.full_name,
-                                    })}
-                                    disabled={processingId === submission.user_id}
-                                    className="flex items-center justify-center bg-gray-100 hover:bg-gray-200 disabled:bg-gray-50 text-gray-700 px-3 py-2.5 rounded-lg transition-colors"
-                                    title="Eliminar usuario permanentemente"
-                                >
-                                    <Trash2 className="w-4 h-4" />
-                                </button>
-                            </div>
+                                </div>
+                            )}
+
+                            {/* Approval Date (only for approved) */}
+                            {activeFilter === 'approved' && submission.kyc_reviewed_at && (
+                                <div className="mb-4 p-3 bg-green-50 border-l-4 border-green-400 rounded">
+                                    <p className="text-sm text-green-700">
+                                        ✓ Aprobado: {formatDate(submission.kyc_reviewed_at)}
+                                    </p>
+                                </div>
+                            )}
+
+                            {/* Actions - Only show for pending */}
+                            {activeFilter === 'pending' && (
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => handleApprove(submission.user_id)}
+                                        disabled={processingId === submission.user_id}
+                                        className="flex-1 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-300 text-white px-4 py-2.5 rounded-lg font-medium transition-colors shadow-sm"
+                                    >
+                                        {processingId === submission.user_id ? (
+                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                        ) : (
+                                            <Check className="w-4 h-4" />
+                                        )}
+                                        Aprobar
+                                    </button>
+                                    <button
+                                        onClick={() => setRejectModal({
+                                            userId: submission.user_id,
+                                            name: submission.user.full_name,
+                                        })}
+                                        disabled={processingId === submission.user_id}
+                                        className="flex-1 flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-300 text-white px-4 py-2.5 rounded-lg font-medium transition-colors shadow-sm"
+                                    >
+                                        <X className="w-4 h-4" />
+                                        Rechazar
+                                    </button>
+                                    <button
+                                        onClick={() => setDeleteModal({
+                                            userId: submission.user_id,
+                                            name: submission.user.full_name,
+                                        })}
+                                        disabled={processingId === submission.user_id}
+                                        className="flex items-center justify-center bg-gray-100 hover:bg-gray-200 disabled:bg-gray-50 text-gray-700 px-3 py-2.5 rounded-lg transition-colors"
+                                        title="Eliminar usuario permanentemente"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     ))}
                 </div>
