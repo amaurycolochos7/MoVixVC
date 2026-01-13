@@ -81,7 +81,20 @@ export function Radar({ serviceType, isAvailable }: RadarProps) {
         try {
             let query = supabase
                 .from("service_requests")
-                .select("*")
+                .select(`
+                    *,
+                    request_stops (
+                        id,
+                        stop_order,
+                        address,
+                        instructions,
+                        stop_items (
+                            id,
+                            item_name,
+                            quantity
+                        )
+                    )
+                `)
                 .eq("status", "pending")
                 .eq("municipio", "Venustiano Carranza") // Local Filter MVP
                 .gt("request_expires_at", new Date().toISOString()) // Filter expired
@@ -141,11 +154,43 @@ export function Radar({ serviceType, isAvailable }: RadarProps) {
             .on(
                 'postgres_changes',
                 { event: 'INSERT', schema: 'public', table: 'service_requests', filter: 'status=eq.pending' },
-                (payload) => {
-                    const newReq = payload.new;
+                async (payload) => {
+                    const newReq = payload.new as any;
                     if (serviceType && newReq.service_type !== serviceType) return;
-                    setRequests(prev => [newReq, ...prev]);
-                    // setNewRequestCount(prev => prev + 1);
+
+                    // Wait 2s to ensure stops are inserted by client (handling race condition)
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+
+                    // Fetch full details including stops and items because realtime payload is shallow
+                    const { data: fullRequest } = await supabase
+                        .from("service_requests")
+                        .select(`
+                            *,
+                            request_stops (
+                                id,
+                                stop_order,
+                                address,
+                                instructions,
+                                stop_items (
+                                    id,
+                                    item_name,
+                                    quantity
+                                )
+                            )
+                        `)
+                        .eq("id", newReq.id)
+                        .single();
+
+                    console.log("🔍 RADAR REALTIME FETCH:", {
+                        id: newReq.id,
+                        stopsCount: fullRequest?.request_stops?.length,
+                        fullRequest
+                    });
+
+                    if (fullRequest) {
+                        setRequests(prev => [fullRequest, ...prev]);
+                        // Play sound or notify?
+                    }
                 }
             )
             .subscribe();
@@ -154,6 +199,75 @@ export function Radar({ serviceType, isAvailable }: RadarProps) {
     }, [isAvailable, supabase, serviceType]);
 
     // handleOffer removed (unused and caused lint errors)
+
+    // Send offer to client - creates offer record and waits for client to accept
+    const handleSendOffer = async (req: any, offerPrice: number) => {
+        console.log("📤 Sending offer to client for request:", req.id, "price:", offerPrice);
+
+        try {
+            const user = (await supabase.auth.getUser()).data.user;
+            if (!user) throw new Error("No autenticado");
+
+            // Check if request is still available
+            const { data: currentRequest, error: checkError } = await supabase
+                .from("service_requests")
+                .select("status")
+                .eq("id", req.id)
+                .single();
+
+            if (checkError) throw checkError;
+
+            if (currentRequest.status !== "pending") {
+                toast.error("Esta solicitud ya no está disponible");
+                setRequests(prev => prev.filter(r => r.id !== req.id));
+                setSelectedRequest(null);
+                return;
+            }
+
+            // Check if driver already sent an offer for this request
+            const { data: existingOffer } = await supabase
+                .from("offers")
+                .select("id")
+                .eq("request_id", req.id)
+                .eq("driver_id", user.id)
+                .eq("status", "pending")
+                .single();
+
+            if (existingOffer) {
+                toast.info("Ya enviaste una oferta para esta solicitud");
+                setSelectedRequest(null);
+                return;
+            }
+
+            // Create offer as PENDING - wait for client to accept
+            const { error: offerError } = await supabase.from("offers").insert({
+                request_id: req.id,
+                driver_id: user.id,
+                offered_price: offerPrice,
+                status: "pending",
+                offer_type: "initial",
+                expires_at: new Date(Date.now() + 5 * 60000).toISOString() // 5 minutes
+            });
+
+            if (offerError) {
+                console.error("❌ Error creating offer:", offerError);
+                throw offerError;
+            }
+
+            console.log("✅ Offer sent successfully!");
+            toast.success("¡Oferta enviada!", {
+                description: `El cliente verá tu oferta de $${offerPrice}`,
+            });
+
+            // Close modal and optionally remove from list (driver can still see it but knows they offered)
+            setSelectedRequest(null);
+
+        } catch (err: any) {
+            console.error("❌ handleSendOffer error:", err);
+            const { message } = parseSupabaseError(err);
+            toast.error(message);
+        }
+    };
 
     // Direct accept - takes service at listed price immediately
     // Includes race condition check to handle multiple drivers accepting simultaneously
@@ -252,8 +366,11 @@ export function Radar({ serviceType, isAvailable }: RadarProps) {
             console.log("✅ Assignment successful via RPC:", rpcResult);
             toast.success("¡Servicio aceptado!");
 
-            // Navigate to service execution page
-            router.push(`/taxi/servicio/${req.id}`);
+            // Navigate to service execution page based on service type
+            const servicePath = req.service_type === "mandadito"
+                ? `/mandadito/servicio/${req.id}`
+                : `/taxi/servicio/${req.id}`;
+            router.push(servicePath);
 
         } catch (err: any) {
             console.error("❌ handleDirectAccept error:", err);
@@ -322,7 +439,7 @@ export function Radar({ serviceType, isAvailable }: RadarProps) {
                     request={selectedRequest}
                     driverLocation={driverPosition}
                     onClose={() => setSelectedRequest(null)}
-                    onAccept={handleDirectAccept}
+                    onAccept={(req, price) => handleSendOffer(req, price || 35)}
                 />
             )}
         </div>

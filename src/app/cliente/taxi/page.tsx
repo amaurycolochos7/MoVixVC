@@ -3,14 +3,13 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { useRequestWizard } from "@/hooks/useRequestWizard";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { reverseGeocode, ReverseGeocodeResult } from "@/lib/mapbox";
 import { LocationPickerMap } from "@/components/maps/location-picker-map";
-import { MapPin, Navigation, Loader2, CheckCircle2, Car, X, DollarSign, User, Timer, Search, ArrowRight, Wallet, Banknote } from "lucide-react";
+import { MapPin, Navigation, Loader2, CheckCircle2, Car, X, User, Timer, ArrowLeft, ArrowRight, Banknote, CircleDot } from "lucide-react";
 
 type LocationState = {
     status: "idle" | "loading" | "success" | "error";
@@ -33,15 +32,14 @@ export default function TaxiWizardPage() {
     const [createdRequestId, setCreatedRequestId] = useState<string | null>(null);
 
     // Pricing and route state
-    const [estimatedPrice, setEstimatedPrice] = useState<number>(33); // Base fare
-    const [routeDistance, setRouteDistance] = useState<number>(0); // km
-    const [routeETA, setRouteETA] = useState<number>(0); // minutes
-    const [paymentMethod, setPaymentMethod] = useState<'cash' | 'wallet'>('cash');
+    const [estimatedPrice, setEstimatedPrice] = useState<number>(35);
+    const [routeDistance, setRouteDistance] = useState<number>(0);
+    const [routeETA, setRouteETA] = useState<number>(0);
 
     const [offers, setOffers] = useState<any[]>([]);
     const [acceptingOffer, setAcceptingOffer] = useState<string | null>(null);
     const [requestExpired, setRequestExpired] = useState(false);
-    const [countdown, setCountdown] = useState(25);
+    const [countdown, setCountdown] = useState(40);
     const [geocodedAddress, setGeocodedAddress] = useState<ReverseGeocodeResult | null>(null);
     const [isGeocodingAddress, setIsGeocodingAddress] = useState(false);
 
@@ -53,7 +51,6 @@ export default function TaxiWizardPage() {
     const [originCoords, setOriginCoords] = useState<{ lat: number, lng: number } | null>(null);
     const [originText, setOriginText] = useState("");
 
-    // Get effective origin coordinates (manual or GPS)
     const effectiveOriginCoords = originCoords || locationState.coords;
 
     // Calculate price when destination changes
@@ -61,7 +58,7 @@ export default function TaxiWizardPage() {
         if (!effectiveOriginCoords || !destinationCoords) return;
 
         const calculateDistance = () => {
-            const R = 6371; // Earth radius in km
+            const R = 6371;
             const dLat = (destinationCoords.lat - effectiveOriginCoords.lat) * Math.PI / 180;
             const dLon = (destinationCoords.lng - effectiveOriginCoords.lng) * Math.PI / 180;
             const a =
@@ -72,14 +69,9 @@ export default function TaxiWizardPage() {
             const distance = R * c;
 
             setRouteDistance(distance);
-
-            // Calculate ETA (assuming 30 km/h average)
-            const eta = Math.ceil((distance / 30) * 60); // minutes
+            const eta = Math.ceil((distance / 30) * 60);
             setRouteETA(eta);
-
-            // Calculate price: Fixed Base $35 (User requested fixed price, driver negotiates extra)
-            const price = 35;
-            setEstimatedPrice(price);
+            setEstimatedPrice(35);
         };
 
         calculateDistance();
@@ -89,7 +81,6 @@ export default function TaxiWizardPage() {
     useEffect(() => {
         if (!createdRequestId) return;
 
-        // Check if request was assigned (driver accepted directly)
         const checkRequestStatus = async () => {
             const { data, error } = await supabase
                 .from("service_requests")
@@ -97,19 +88,14 @@ export default function TaxiWizardPage() {
                 .eq("id", createdRequestId)
                 .single();
 
-            if (error) {
-                console.error("❌ Error checking request status:", error);
-                return;
-            }
+            if (error) return;
 
-            // If request is assigned or in_progress, redirect to tracking
             if ((data?.status === "assigned" || data?.status === "in_progress") && data?.assigned_driver_id) {
                 toast.success("¡Conductor asignado!");
                 router.push(`/cliente/tracking/${createdRequestId}`);
             }
         };
 
-        // Fetch existing offers
         const fetchOffers = async () => {
             const { data, error } = await supabase
                 .from("offers")
@@ -118,34 +104,26 @@ export default function TaxiWizardPage() {
                 .eq("status", "pending")
                 .order("created_at", { ascending: false });
 
-            if (error) {
-                console.error("❌ Error fetching initial offers:", error);
-                return;
-            }
+            if (error) return;
 
             if (data && data.length > 0) {
                 setOffers(prev => {
                     const newIds = data.map(o => o.id).sort().join(',');
                     const prevIds = prev.map(o => o.id).sort().join(',');
-                    if (newIds !== prevIds) {
-                        return data;
-                    }
+                    if (newIds !== prevIds) return data;
                     return prev;
                 });
             }
         };
 
-        // Initial fetch
         fetchOffers();
         checkRequestStatus();
 
-        // Polling as backup (every 3 seconds)
         const pollInterval = setInterval(() => {
             fetchOffers();
             checkRequestStatus();
         }, 3000);
 
-        // Subscribe to new offers (Realtime)
         const channel = supabase
             .channel(`offers-${createdRequestId}`)
             .on(
@@ -163,12 +141,7 @@ export default function TaxiWizardPage() {
                         .eq("id", payload.new.id)
                         .single();
 
-                    if (error) {
-                        console.error("❌ Error fetching offer details:", error);
-                        return;
-                    }
-
-                    if (data) {
+                    if (!error && data) {
                         setOffers(prev => {
                             if (prev.some(o => o.id === data.id)) return prev;
                             return [data, ...prev];
@@ -185,16 +158,16 @@ export default function TaxiWizardPage() {
         };
     }, [createdRequestId, router]);
 
-    // Countdown timer for request expiration (25 seconds)
+    // Countdown timer
     useEffect(() => {
         if (!createdRequestId || requestExpired) return;
 
-        setCountdown(25);
+        setCountdown(40);
         const startTime = Date.now();
 
         const timer = setInterval(() => {
             const elapsed = Math.floor((Date.now() - startTime) / 1000);
-            const remaining = Math.max(0, 25 - elapsed);
+            const remaining = Math.max(0, 40 - elapsed);
             setCountdown(remaining);
 
             if (remaining <= 0) {
@@ -207,31 +180,22 @@ export default function TaxiWizardPage() {
         return () => clearInterval(timer);
     }, [createdRequestId]);
 
-    // Handle "try again" after expiration
     const handleTryAgain = () => {
         setCreatedRequestId(null);
         setOffers([]);
         setRequestExpired(false);
-        setCountdown(25);
+        setCountdown(40);
     };
 
-    // Accept an offer
     const handleAcceptOffer = async (offerId: string, driverId: string, offeredPrice: number) => {
         setAcceptingOffer(offerId);
         try {
-            await supabase
-                .from("offers")
-                .update({ status: "accepted" })
-                .eq("id", offerId);
-
-            await supabase
-                .from("service_requests")
-                .update({
-                    status: "assigned",
-                    assigned_driver_id: driverId,
-                    final_price: offeredPrice
-                })
-                .eq("id", createdRequestId);
+            await supabase.from("offers").update({ status: "accepted" }).eq("id", offerId);
+            await supabase.from("service_requests").update({
+                status: "assigned",
+                assigned_driver_id: driverId,
+                final_price: offeredPrice
+            }).eq("id", createdRequestId);
 
             toast.success("Conductor asignado");
             router.push(`/cliente/tracking/${createdRequestId}`);
@@ -242,14 +206,9 @@ export default function TaxiWizardPage() {
         }
     };
 
-    // Request GPS location
     const requestLocation = () => {
         if (!navigator.geolocation) {
-            setLocationState({
-                status: "error",
-                coords: null,
-                error: "Tu navegador no soporta geolocalización",
-            });
+            setLocationState({ status: "error", coords: null, error: "Tu navegador no soporta geolocalización" });
             return;
         }
 
@@ -257,17 +216,9 @@ export default function TaxiWizardPage() {
 
         navigator.geolocation.getCurrentPosition(
             async (position) => {
-                const coords = {
-                    lat: position.coords.latitude,
-                    lng: position.coords.longitude,
-                };
-                setLocationState({
-                    status: "success",
-                    coords: coords,
-                    error: null,
-                });
+                const coords = { lat: position.coords.latitude, lng: position.coords.longitude };
+                setLocationState({ status: "success", coords: coords, error: null });
 
-                // Reverse geocode to get address
                 setIsGeocodingAddress(true);
                 try {
                     const address = await reverseGeocode(coords);
@@ -280,20 +231,15 @@ export default function TaxiWizardPage() {
             },
             (geoError) => {
                 let errorMsg = "No se pudo obtener tu ubicación";
-                if (geoError.code === geoError.PERMISSION_DENIED) {
-                    errorMsg = "Permiso de ubicación denegado";
-                } else if (geoError.code === geoError.POSITION_UNAVAILABLE) {
-                    errorMsg = "Ubicación no disponible";
-                } else if (geoError.code === geoError.TIMEOUT) {
-                    errorMsg = "Tiempo de espera agotado";
-                }
+                if (geoError.code === geoError.PERMISSION_DENIED) errorMsg = "Permiso de ubicación denegado";
+                else if (geoError.code === geoError.POSITION_UNAVAILABLE) errorMsg = "Ubicación no disponible";
+                else if (geoError.code === geoError.TIMEOUT) errorMsg = "Tiempo de espera agotado";
                 setLocationState({ status: "error", coords: null, error: errorMsg });
             },
             { enableHighAccuracy: true, timeout: 30000, maximumAge: 60000 }
         );
     };
 
-    // Valid if we have origin (GPS or manual) AND destination
     const isFormValid = (locationState.status === "success" || originCoords !== null) && destinationCoords !== null;
 
     const handleSubmit = async () => {
@@ -316,462 +262,313 @@ export default function TaxiWizardPage() {
         };
 
         const result = await submitRequest(requestData);
-
-        if (result) {
-            setCreatedRequestId(result.id);
-        }
+        if (result) setCreatedRequestId(result.id);
     };
 
-    // Show searching animation if request was created
-    if (createdRequestId) {
-        if (requestExpired) {
-            return (
-                <div className="min-h-[80vh] p-4 flex flex-col items-center justify-center text-center space-y-6">
-                    <div className="w-20 h-20 rounded-full bg-red-100 flex items-center justify-center">
-                        <Timer className="w-10 h-10 text-red-500" />
-                    </div>
-                    <div>
-                        <h2 className="text-xl font-bold text-red-600">Solicitud Expirada</h2>
-                        <p className="text-sm text-text-secondary mt-2">
-                            Ningún conductor aceptó en el tiempo límite
-                        </p>
-                    </div>
-                    <Button onClick={handleTryAgain} className="w-full max-w-xs">
-                        Solicitar de nuevo
-                    </Button>
-                    <Button variant="outline" onClick={() => router.push("/cliente")} className="w-full max-w-xs">
-                        Volver al inicio
-                    </Button>
-                </div>
-            );
-        }
-
+    // Request expired screen
+    if (createdRequestId && requestExpired) {
         return (
-            <div className="min-h-[80vh] p-4">
-                {/* Header with countdown */}
-                <div className="text-center mb-6">
-                    <div className="relative w-20 h-20 mx-auto mb-4">
-                        <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center">
-                            <Car className="w-10 h-10 text-primary" />
-                        </div>
-                        <div className="absolute inset-0 rounded-full border-2 border-primary/30 animate-ping" />
-                    </div>
-                    <h2 className="text-xl font-bold">
-                        {offers.length > 0 ? "Ofertas recibidas" : "Buscando conductores..."}
-                    </h2>
-                    <p className="text-sm text-text-secondary mt-1">
-                        {offers.length > 0
-                            ? `${offers.length} conductor(es) disponible(s)`
-                            : "Notificando a taxis cercanos"
-                        }
-                    </p>
-
-                    {/* Countdown Timer */}
-                    <div className={`mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-full ${countdown <= 10 ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
-                        <Timer className="w-4 h-4" />
-                        <span className="font-bold text-lg">{countdown}s</span>
-                        <span className="text-sm">restantes</span>
-                    </div>
+            <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6 text-center">
+                <div className="w-20 h-20 rounded-full bg-red-100 flex items-center justify-center mb-6">
+                    <Timer className="w-10 h-10 text-red-500" />
                 </div>
-
-                {/* Offers List */}
-                {offers.length > 0 ? (
-                    <div className="space-y-3 mb-6">
-                        {offers.map((offer) => (
-                            <Card key={offer.id} className="p-4 border-2 border-primary/20">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center">
-                                            <User className="w-6 h-6 text-gray-500" />
-                                        </div>
-                                        <div>
-                                            <p className="font-semibold">
-                                                {offer.driver?.full_name || "Conductor"}
-                                            </p>
-                                            <p className="text-sm text-text-secondary">
-                                                Conductor verificado
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <div className="text-right">
-                                        <p className="text-2xl font-bold text-primary">
-                                            ${offer.offered_price}
-                                        </p>
-                                    </div>
-                                </div>
-                                <Button
-                                    className="w-full mt-3"
-                                    onClick={() => handleAcceptOffer(offer.id, offer.driver_id, offer.offered_price)}
-                                    disabled={acceptingOffer === offer.id}
-                                >
-                                    {acceptingOffer === offer.id ? (
-                                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                                    ) : (
-                                        <CheckCircle2 className="w-4 h-4 mr-2" />
-                                    )}
-                                    Aceptar oferta
-                                </Button>
-                            </Card>
-                        ))}
-                    </div>
-                ) : (
-                    <div className="text-center py-8">
-                        <Loader2 className="w-8 h-8 animate-spin mx-auto text-primary mb-3" />
-                        <p className="text-sm text-text-secondary">
-                            Esperando ofertas de conductores...
-                        </p>
-                    </div>
-                )}
-
-                {/* Destination reminder */}
-                <Card className="p-3 bg-surface-elevated mb-4">
-                    <p className="text-xs text-text-secondary">Destino</p>
-                    <p className="font-medium">{destinationText}</p>
-                </Card>
-
-                {/* Cancel button */}
-                <Button
-                    variant="outline"
-                    className="w-full"
-                    onClick={async () => {
-                        await supabase
-                            .from("service_requests")
-                            .update({ status: "cancelled" })
-                            .eq("id", createdRequestId);
-                        setCreatedRequestId(null);
-                        setOffers([]);
-                        toast.info("Solicitud cancelada");
-                    }}
-                >
-                    <X className="w-4 h-4 mr-2" />
-                    Cancelar solicitud
+                <h2 className="text-xl font-bold text-gray-900 mb-2">Solicitud Expirada</h2>
+                <p className="text-gray-500 mb-8">Ningún conductor aceptó en el tiempo límite</p>
+                <Button onClick={handleTryAgain} className="w-full max-w-xs h-12 bg-blue-500 hover:bg-blue-600">
+                    Solicitar de nuevo
                 </Button>
+                <button onClick={() => router.push("/cliente")} className="mt-4 text-gray-500 text-sm">
+                    Volver al inicio
+                </button>
             </div>
         );
     }
 
-    return (
-        <div className="space-y-5 pb-20">
-            <h1 className="text-2xl font-bold">Solicitar Taxi</h1>
+    // Waiting for offers screen
+    if (createdRequestId) {
+        return (
+            <div className="min-h-screen bg-white">
+                {/* Header */}
+                <div className="bg-gradient-to-r from-blue-500 to-blue-600 px-6 pt-12 pb-8 text-white text-center">
+                    <div className="relative w-20 h-20 mx-auto mb-4">
+                        <div className="w-20 h-20 rounded-full bg-white/20 flex items-center justify-center">
+                            <Car className="w-10 h-10 text-white" />
+                        </div>
+                        <div className="absolute inset-0 rounded-full border-2 border-white/30 animate-ping" />
+                    </div>
+                    <h2 className="text-xl font-bold">
+                        {offers.length > 0 ? "Ofertas recibidas" : "Buscando conductores..."}
+                    </h2>
+                    <p className="text-white/80 text-sm mt-1">
+                        {offers.length > 0 ? `${offers.length} conductor(es) disponible(s)` : "Notificando a taxis cercanos"}
+                    </p>
 
-            {/* === ORIGIN SECTION === */}
-            <Card className="p-5 space-y-4">
-                <div className="flex items-center gap-2 text-primary font-semibold">
-                    <Navigation className="w-5 h-5" />
-                    <span>¿Dónde te recogemos?</span>
+                    {/* Countdown */}
+                    <div className={`mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-full ${countdown <= 10 ? 'bg-red-500' : 'bg-white/20'}`}>
+                        <Timer className="w-4 h-4" />
+                        <span className="font-bold text-lg">{countdown}s</span>
+                    </div>
                 </div>
 
-                {/* Show selected origin if we have one */}
-                {(originCoords || locationState.status === "success") ? (
-                    <div className="space-y-3">
-                        <div className="p-4 rounded-xl bg-green-50 border border-green-200">
-                            <div className="flex items-start gap-3">
-                                <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-                                <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-semibold text-green-800">Punto de recogida:</p>
-                                    <p className="text-sm text-green-700 mt-1">
-                                        {originCoords
-                                            ? originText || "Ubicación seleccionada en mapa"
-                                            : geocodedAddress?.street || geocodedAddress?.neighborhood || "Tu ubicación GPS"
-                                        }
-                                    </p>
-                                    <p className="text-xs text-green-600 mt-1">
-                                        {originCoords ? "📍 Seleccionado en mapa" : "📡 Via GPS"}
-                                    </p>
+                <div className="p-4">
+                    {/* Offers List */}
+                    {offers.length > 0 ? (
+                        <div className="space-y-3 mb-6">
+                            {offers.map((offer) => (
+                                <div key={offer.id} className="bg-white rounded-2xl p-4 border-2 border-blue-100 shadow-sm">
+                                    <div className="flex items-center justify-between mb-3">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center">
+                                                <User className="w-6 h-6 text-gray-500" />
+                                            </div>
+                                            <div>
+                                                <p className="font-semibold text-gray-900">{offer.driver?.full_name || "Conductor"}</p>
+                                                <p className="text-xs text-gray-500">Conductor verificado</p>
+                                            </div>
+                                        </div>
+                                        <p className="text-2xl font-bold text-blue-600">${offer.offered_price}</p>
+                                    </div>
+                                    <Button
+                                        className="w-full h-12 bg-blue-500 hover:bg-blue-600"
+                                        onClick={() => handleAcceptOffer(offer.id, offer.driver_id, offer.offered_price)}
+                                        disabled={acceptingOffer === offer.id}
+                                    >
+                                        {acceptingOffer === offer.id ? <Loader2 className="w-4 h-4 animate-spin" /> : "Aceptar oferta"}
+                                    </Button>
                                 </div>
-                            </div>
+                            ))}
                         </div>
-
-                        {/* Change origin buttons */}
-                        <div className="flex gap-2">
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                className="flex-1 text-xs"
-                                onClick={() => {
-                                    setOriginCoords(null);
-                                    setOriginText("");
-                                    setLocationState({ status: "idle", coords: null, error: null });
-                                    setGeocodedAddress(null);
-                                }}
-                            >
-                                Cambiar ubicación
-                            </Button>
+                    ) : (
+                        <div className="text-center py-12">
+                            <Loader2 className="w-8 h-8 animate-spin mx-auto text-blue-500 mb-3" />
+                            <p className="text-gray-500">Esperando ofertas de conductores...</p>
                         </div>
+                    )}
 
-                        {/* Reference field */}
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-gray-700">
-                                Referencias para el conductor (opcional):
-                            </label>
-                            <Textarea
-                                placeholder='Ej: "Frente al Oxxo", "Casa azul con portón negro"'
-                                value={originReference}
-                                onChange={(e) => setOriginReference(e.target.value)}
-                                rows={2}
-                                className="resize-none"
-                            />
-                        </div>
-                    </div>
-                ) : (
-                    <div className="space-y-3">
-                        <p className="text-sm text-gray-600">
-                            Selecciona dónde te van a recoger
-                        </p>
-
-                        {/* GPS Loading state */}
-                        {locationState.status === "loading" && (
-                            <div className="flex items-center gap-3 p-4 rounded-xl bg-blue-50">
-                                <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
-                                <span className="text-sm text-blue-700">Obteniendo ubicación...</span>
-                            </div>
-                        )}
-
-                        {/* GPS Error state */}
-                        {locationState.status === "error" && (
-                            <div className="flex items-center gap-3 p-4 rounded-xl bg-red-50 mb-3">
-                                <MapPin className="w-5 h-5 text-red-500 flex-shrink-0" />
-                                <span className="text-sm text-red-600 flex-1">{locationState.error}</span>
-                            </div>
-                        )}
-
-                        {/* Two options: GPS or Manual */}
-                        {locationState.status !== "loading" && (
-                            <div className="grid grid-cols-1 gap-3">
-                                {/* GPS Auto button */}
-                                <Button
-                                    className="w-full h-14"
-                                    size="lg"
-                                    onClick={requestLocation}
-                                >
-                                    <Navigation className="w-5 h-5 mr-2" />
-                                    Usar mi ubicación actual (GPS)
-                                </Button>
-
-                                {/* Divider */}
-                                <div className="flex items-center gap-3">
-                                    <div className="h-px bg-gray-200 flex-1" />
-                                    <span className="text-xs text-gray-400 font-medium">O</span>
-                                    <div className="h-px bg-gray-200 flex-1" />
-                                </div>
-
-                                {/* Manual map button */}
-                                <Button
-                                    className="w-full h-14"
-                                    size="lg"
-                                    variant="outline"
-                                    onClick={() => setShowOriginMapPicker(true)}
-                                >
-                                    <MapPin className="w-5 h-5 mr-2" />
-                                    Seleccionar en el mapa
-                                </Button>
-                            </div>
-                        )}
-                    </div>
-                )}
-            </Card>
-
-            {/* === DESTINATION SECTION === */}
-            <Card className="p-5 space-y-4">
-                <div className="flex items-center gap-2 text-primary font-semibold">
-                    <Search className="w-5 h-5" />
-                    <span>¿A dónde vas?</span>
-                </div>
-
-                {!destinationCoords ? (
-                    <div className="space-y-3">
-                        <p className="text-sm text-gray-600">
-                            Selecciona tu destino en el mapa para ver el precio estimado
-                        </p>
-                        <Button
-                            className="w-full h-14"
-                            size="lg"
-                            variant="outline"
-                            onClick={() => setShowMapPicker(true)}
-                        >
-                            <MapPin className="w-5 h-5 mr-2" />
-                            Seleccionar destino en mapa
-                        </Button>
-                    </div>
-                ) : (
-                    <div className="space-y-3">
-                        <div className="p-4 rounded-xl bg-green-50 border border-green-200">
-                            <div className="flex items-start gap-3">
-                                <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-                                <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-semibold text-green-800">Destino seleccionado:</p>
-                                    <p className="text-sm text-green-700 mt-1">{destinationText}</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Reference field for destination */}
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-gray-700">
-                                Referencias del destino (opcional):
-                            </label>
-                            <Textarea
-                                placeholder='Ej: "Edificio blanco", "Junto al parque", "Local con letrero verde"'
-                                value={destinationReference}
-                                onChange={(e) => setDestinationReference(e.target.value)}
-                                rows={2}
-                                className="resize-none"
-                            />
-                        </div>
-
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            className="w-full"
-                            onClick={() => setShowMapPicker(true)}
-                        >
-                            Cambiar destino
-                        </Button>
-                    </div>
-                )}
-            </Card>
-
-            {/* === SERVICE CARD (ECONÓMICO) === */}
-            {destinationCoords && locationState.coords && (
-                <Card className="p-5 bg-gradient-to-br from-gray-900 to-gray-800 text-white border-0 shadow-xl">
-                    <div className="flex items-center justify-between mb-4">
-                        <div>
-                            <div className="flex items-center gap-2 mb-1">
-                                <h3 className="text-xl font-bold">Económico</h3>
-                                <span className="px-2 py-0.5 bg-yellow-400 text-yellow-900 text-xs font-bold rounded">
-                                    POPULAR
-                                </span>
-                            </div>
-                            <div className="flex items-center gap-4 text-sm text-gray-300">
-                                <span className="flex items-center gap-1">
-                                    <Timer className="w-4 h-4" />
-                                    {routeETA} min
-                                </span>
-                                <span>•</span>
-                                <span>{routeDistance.toFixed(1)} km</span>
-                            </div>
-                        </div>
-                        <div className="w-16 h-16">
-                            <Car className="w-full h-full text-white/80" />
-                        </div>
+                    {/* Destination reminder */}
+                    <div className="bg-gray-50 rounded-xl p-4 mb-4">
+                        <p className="text-xs text-gray-500 mb-1">Destino</p>
+                        <p className="font-medium text-gray-900">{destinationText}</p>
                     </div>
 
-                    <div className="h-px bg-white/20 my-4" />
-
-                    <div className="flex items-end justify-between">
-                        <div>
-                            <p className="text-xs text-gray-400 uppercase font-semibold tracking-wide">
-                                Precio estimado
-                            </p>
-                            <p className="text-4xl font-black tracking-tight">
-                                ${estimatedPrice}
-                            </p>
-                            <div className="mt-3 bg-blue-50/50 border border-blue-100 rounded-xl p-3 flex gap-3 text-left">
-                                <div className="mt-0.5">
-                                    <svg className="w-5 h-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                    </svg>
-                                </div>
-                                <div className="space-y-1">
-                                    <p className="text-sm font-semibold text-blue-900">Tarifa Local: $35 MXN</p>
-                                    <p className="text-xs text-blue-700 leading-relaxed">
-                                        Tarifa mínima dentro de <span className="font-medium">Venustiano Carranza</span>.
-                                        El precio final puede variar por distancia y es negociable con el conductor.
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </Card>
-            )}
-
-            {/* === PAYMENT METHODS === */}
-            {destinationCoords && (
-                <Card className="p-5 space-y-4">
-                    <h3 className="font-semibold text-gray-900">Método de pago</h3>
-
-                    {/* Cash Option */}
+                    {/* Cancel button */}
                     <button
-                        onClick={() => setPaymentMethod('cash')}
-                        className={`w-full p-4 rounded-xl border-2 transition-all flex items-center justify-between ${paymentMethod === 'cash'
-                            ? 'border-primary bg-primary/5'
-                            : 'border-gray-200 hover:border-gray-300'
-                            }`}
+                        className="w-full py-3 text-red-500 font-medium"
+                        onClick={async () => {
+                            await supabase.from("service_requests").update({ status: "cancelled" }).eq("id", createdRequestId);
+                            setCreatedRequestId(null);
+                            setOffers([]);
+                            toast.info("Solicitud cancelada");
+                        }}
                     >
-                        <div className="flex items-center gap-3">
-                            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${paymentMethod === 'cash' ? 'bg-primary text-white' : 'bg-gray-100'
-                                }`}>
-                                <Banknote className="w-5 h-5" />
-                            </div>
-                            <div className="text-left">
-                                <p className="font-semibold text-gray-900">Efectivo</p>
-                                <p className="text-xs text-gray-500">Paga al conductor</p>
-                            </div>
+                        Cancelar solicitud
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    // Main form
+    return (
+        <div className="min-h-screen bg-gray-50 pb-32">
+            {/* Header */}
+            <div className="bg-white px-5 pt-12 pb-6 shadow-sm">
+                <button onClick={() => router.back()} className="flex items-center gap-2 text-gray-500 mb-4">
+                    <ArrowLeft className="h-5 w-5" />
+                </button>
+                <h1 className="text-xl font-bold text-gray-900">Solicitar Taxi</h1>
+            </div>
+
+            <div className="p-4 space-y-4">
+                {/* Route Card */}
+                <div className="bg-white rounded-2xl p-5 shadow-sm">
+                    {/* Origin */}
+                    <div className="flex items-start gap-3">
+                        <div className="flex flex-col items-center">
+                            <div className="w-3 h-3 rounded-full bg-emerald-500" />
+                            <div className="w-0.5 flex-1 bg-gray-200 my-1 min-h-[3rem]" />
                         </div>
-                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'cash' ? 'border-primary' : 'border-gray-300'
-                            }`}>
-                            {paymentMethod === 'cash' && (
-                                <div className="w-3 h-3 rounded-full bg-primary" />
+                        <div className="flex-1 pb-4">
+                            <p className="text-xs text-gray-500 font-medium mb-1">¿Dónde te recogemos?</p>
+                            {originCoords || locationState.status === "success" ? (
+                                <div className="space-y-3">
+                                    <div>
+                                        <p className="font-medium text-gray-900">
+                                            {originCoords ? originText || "Ubicación en mapa" : geocodedAddress?.street || "Tu ubicación GPS"}
+                                        </p>
+                                        <button
+                                            className="text-xs text-blue-500 mt-1"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setOriginCoords(null);
+                                                setOriginText("");
+                                                setLocationState({ status: "idle", coords: null, error: null });
+                                                setGeocodedAddress(null);
+                                            }}
+                                        >
+                                            Cambiar ubicación
+                                        </button>
+                                    </div>
+                                    {/* Reference input for origin */}
+                                    <div>
+                                        <input
+                                            type="text"
+                                            placeholder="Referencias: Ej. Casa azul, frente al Oxxo..."
+                                            value={originReference}
+                                            onChange={(e) => setOriginReference(e.target.value)}
+                                            className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        />
+                                    </div>
+                                </div>
+                            ) : locationState.status === "loading" ? (
+                                <div className="flex items-center gap-2 text-gray-500">
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    <span className="text-sm">Obteniendo ubicación...</span>
+                                </div>
+                            ) : (
+                                <button
+                                    onClick={() => setShowOriginMapPicker(true)}
+                                    className="text-gray-400 hover:text-gray-600 text-left"
+                                >
+                                    Selecciona tu ubicación de origen
+                                </button>
                             )}
                         </div>
-                    </button>
+                    </div>
 
-                    {/* Wallet Option (Disabled) */}
+                    {/* Destination */}
+                    <div className="flex items-start gap-3">
+                        <div className="flex flex-col items-center">
+                            <div className="w-3 h-3 rounded-full bg-red-500" />
+                        </div>
+                        <div className="flex-1">
+                            <p className="text-xs text-gray-500 font-medium mb-1">¿A dónde vas?</p>
+                            {destinationCoords ? (
+                                <div className="space-y-3">
+                                    <div>
+                                        <p className="font-medium text-gray-900">{destinationText}</p>
+                                        <button
+                                            className="text-xs text-blue-500 mt-1"
+                                            onClick={() => setShowMapPicker(true)}
+                                        >
+                                            Cambiar destino
+                                        </button>
+                                    </div>
+                                    {/* Reference input for destination */}
+                                    <div>
+                                        <input
+                                            type="text"
+                                            placeholder="Referencias: Ej. Edificio blanco, junto al parque..."
+                                            value={destinationReference}
+                                            onChange={(e) => setDestinationReference(e.target.value)}
+                                            className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        />
+                                    </div>
+                                </div>
+                            ) : (
+                                <button
+                                    onClick={() => setShowMapPicker(true)}
+                                    className="text-gray-400 hover:text-gray-600 text-left"
+                                >
+                                    Selecciona tu destino
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                {/* GPS Button (only if no origin selected) */}
+                {!originCoords && locationState.status !== "success" && locationState.status !== "loading" && (
                     <button
-                        disabled
-                        className="w-full p-4 rounded-xl border-2 border-gray-200 bg-gray-50 opacity-60 cursor-not-allowed flex items-center justify-between"
+                        onClick={requestLocation}
+                        className="w-full bg-white rounded-2xl p-4 shadow-sm flex items-center gap-3 hover:bg-gray-50 transition-colors"
                     >
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
-                                <Wallet className="w-5 h-5 text-gray-400" />
+                        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                            <Navigation className="h-5 w-5 text-blue-600" />
+                        </div>
+                        <span className="font-medium text-gray-900">Usar mi ubicación actual</span>
+                    </button>
+                )}
+
+                {/* Error state */}
+                {locationState.status === "error" && (
+                    <div className="bg-red-50 rounded-xl p-4 flex items-center gap-3">
+                        <MapPin className="w-5 h-5 text-red-500" />
+                        <span className="text-sm text-red-600">{locationState.error}</span>
+                    </div>
+                )}
+
+                {/* Price Card */}
+                {destinationCoords && effectiveOriginCoords && (
+                    <div className="bg-white rounded-2xl p-5 shadow-sm">
+                        <div className="flex items-center justify-between mb-4">
+                            <div>
+                                <h3 className="font-bold text-gray-900 text-lg">Económico</h3>
+                                <div className="flex items-center gap-3 text-sm text-gray-500 mt-1">
+                                    <span className="flex items-center gap-1">
+                                        <Timer className="w-4 h-4" />
+                                        {routeETA} min
+                                    </span>
+                                    <span>•</span>
+                                    <span>{routeDistance.toFixed(1)} km</span>
+                                </div>
                             </div>
-                            <div className="text-left">
-                                <p className="font-semibold text-gray-700">Créditos MoVix</p>
-                                <p className="text-xs text-gray-500">Próximamente</p>
+                            <div className="w-14 h-14 bg-blue-100 rounded-xl flex items-center justify-center">
+                                <Car className="w-8 h-8 text-blue-600" />
                             </div>
                         </div>
-                        <span className="text-xs font-semibold text-gray-500 bg-gray-200 px-2 py-1 rounded">
-                            PRÓXIMAMENTE
-                        </span>
-                    </button>
-                </Card>
-            )}
 
-            {/* Error display */}
-            {error && (
-                <div className="p-3 rounded-lg bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-sm">
-                    {error}
-                </div>
-            )}
-
-            {/* === SUBMIT BUTTON === */}
-            <Button
-                className="w-full h-14 text-lg font-bold shadow-xl"
-                size="lg"
-                disabled={!isFormValid || isLoading}
-                onClick={handleSubmit}
-            >
-                {isLoading ? (
-                    <>
-                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                        Enviando solicitud...
-                    </>
-                ) : (
-                    <>
-                        CONFIRMAR VIAJE
-                        <ArrowRight className="w-5 h-5 ml-2" />
-                    </>
+                        <div className="flex items-end justify-between pt-4 border-t border-gray-100">
+                            <div>
+                                <p className="text-xs text-gray-500">Precio estimado</p>
+                                <p className="text-3xl font-bold text-gray-900">${estimatedPrice}</p>
+                            </div>
+                            <div className="flex items-center gap-2 bg-emerald-100 text-emerald-700 px-3 py-1.5 rounded-full text-xs font-medium">
+                                <Banknote className="w-4 h-4" />
+                                Efectivo
+                            </div>
+                        </div>
+                    </div>
                 )}
-            </Button>
 
-            {!isFormValid && (
-                <p className="text-xs text-center text-gray-500">
-                    {!effectiveOriginCoords && "📍 Selecciona dónde te recogen"}
-                    {effectiveOriginCoords && !destinationCoords && "🎯 Selecciona tu destino en el mapa"}
-                </p>
-            )}
 
-            {/* Destination Map Picker Modal */}
+
+                {/* Error display */}
+                {error && (
+                    <div className="p-4 rounded-xl bg-red-50 text-red-600 text-sm">
+                        {error}
+                    </div>
+                )}
+            </div>
+
+            {/* Fixed Bottom Button */}
+            <div className="fixed bottom-16 left-0 right-0 p-4 bg-white border-t border-gray-100 z-50">
+                <Button
+                    className="w-full h-14 text-lg font-bold bg-blue-500 hover:bg-blue-600 rounded-xl shadow-lg shadow-blue-200"
+                    disabled={!isFormValid || isLoading}
+                    onClick={handleSubmit}
+                >
+                    {isLoading ? (
+                        <>
+                            <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                            Enviando...
+                        </>
+                    ) : (
+                        <>
+                            Confirmar viaje
+                            <ArrowRight className="w-5 h-5 ml-2" />
+                        </>
+                    )}
+                </Button>
+                {!isFormValid && (
+                    <p className="text-xs text-center text-gray-500 mt-2">
+                        {!effectiveOriginCoords && "Selecciona dónde te recogen"}
+                        {effectiveOriginCoords && !destinationCoords && "Selecciona tu destino"}
+                    </p>
+                )}
+            </div>
+
+            {/* Map Pickers */}
             {showMapPicker && (
                 <LocationPickerMap
                     initialLocation={destinationCoords || effectiveOriginCoords}
@@ -784,7 +581,6 @@ export default function TaxiWizardPage() {
                 />
             )}
 
-            {/* Origin Map Picker Modal */}
             {showOriginMapPicker && (
                 <LocationPickerMap
                     initialLocation={originCoords || locationState.coords}

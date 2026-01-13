@@ -68,10 +68,20 @@ export default function RegistroPage() {
                 toast.error("El teléfono debe tener exactamente 10 dígitos");
                 return;
             }
-            if (!formData.vehicleBrand || !formData.vehicleModel ||
-                !formData.vehicleColor || !formData.vehiclePlate || !formData.taxiNumber) {
-                toast.error("Todos los datos del vehículo son obligatorios");
-                return;
+
+            // Different validation for taxi vs mandadito
+            if (formData.role === "taxi") {
+                if (!formData.vehicleBrand || !formData.vehicleModel ||
+                    !formData.vehicleColor || !formData.vehiclePlate || !formData.taxiNumber) {
+                    toast.error("Todos los datos del vehículo son obligatorios");
+                    return;
+                }
+            } else if (formData.role === "mandadito") {
+                // For mandadito: brand, model, color required. Plate and number optional.
+                if (!formData.vehicleBrand || !formData.vehicleModel || !formData.vehicleColor) {
+                    toast.error("Marca, modelo y color de la moto son obligatorios");
+                    return;
+                }
             }
         }
 
@@ -152,8 +162,8 @@ export default function RegistroPage() {
                         brand: formData.vehicleBrand,
                         model: formData.vehicleModel,
                         color: formData.vehicleColor,
-                        plate_number: formData.vehiclePlate.toUpperCase(),
-                        taxi_number: formData.taxiNumber,
+                        plate_number: formData.vehiclePlate ? formData.vehiclePlate.toUpperCase() : null,
+                        taxi_number: formData.taxiNumber || null,
                     });
 
                 if (vehicleError) {
@@ -286,8 +296,8 @@ export default function RegistroPage() {
                             </Select>
                         </div>
 
-                        {/* Vehicle Data Section - Only for drivers */}
-                        {(formData.role === "taxi" || formData.role === "mandadito") && (
+                        {/* Vehicle Data Section - TAXI */}
+                        {formData.role === "taxi" && (
                             <div className="mt-6 pt-6 border-t-2 border-gray-200 space-y-4">
                                 <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                                     <Car className="w-5 h-5 text-primary" />
@@ -302,7 +312,7 @@ export default function RegistroPage() {
                                         <Label htmlFor="vehicleBrand">Marca</Label>
                                         <Input
                                             id="vehicleBrand"
-                                            placeholder="Nissan, Toyota, etc."
+                                            placeholder="Nissan, Toyota, Chevrolet"
                                             value={formData.vehicleBrand}
                                             onChange={(e) => handleChange("vehicleBrand", e.target.value)}
                                         />
@@ -323,7 +333,7 @@ export default function RegistroPage() {
                                     <Label htmlFor="vehicleColor">Color</Label>
                                     <Input
                                         id="vehicleColor"
-                                        placeholder="Blanco, Verde, Blanco con azul, etc."
+                                        placeholder="Blanco, Verde, Rojo"
                                         value={formData.vehicleColor}
                                         onChange={(e) => handleChange("vehicleColor", e.target.value)}
                                     />
@@ -345,6 +355,75 @@ export default function RegistroPage() {
                                         <Input
                                             id="taxiNumber"
                                             placeholder="1234"
+                                            value={formData.taxiNumber}
+                                            onChange={(e) => handleChange("taxiNumber", e.target.value)}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Vehicle Data Section - MANDADITO (Motorcycle) */}
+                        {formData.role === "mandadito" && (
+                            <div className="mt-6 pt-6 border-t-2 border-orange-200 space-y-4">
+                                <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                                    🏍️ Datos de la Motocicleta
+                                </h3>
+                                <p className="text-sm text-muted-foreground">
+                                    Marca, modelo y color son obligatorios
+                                </p>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="vehicleBrand">Marca *</Label>
+                                        <Input
+                                            id="vehicleBrand"
+                                            placeholder="Honda, Italika, Yamaha"
+                                            value={formData.vehicleBrand}
+                                            onChange={(e) => handleChange("vehicleBrand", e.target.value)}
+                                            required
+                                        />
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label htmlFor="vehicleModel">Modelo *</Label>
+                                        <Input
+                                            id="vehicleModel"
+                                            placeholder="FT 150, Vento 2022"
+                                            value={formData.vehicleModel}
+                                            onChange={(e) => handleChange("vehicleModel", e.target.value)}
+                                            required
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label htmlFor="vehicleColor">Color *</Label>
+                                    <Input
+                                        id="vehicleColor"
+                                        placeholder="Negro, Rojo, Azul"
+                                        value={formData.vehicleColor}
+                                        onChange={(e) => handleChange("vehicleColor", e.target.value)}
+                                        required
+                                    />
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="vehiclePlate">Placas (opcional)</Label>
+                                        <Input
+                                            id="vehiclePlate"
+                                            placeholder="M12-ABC"
+                                            value={formData.vehiclePlate}
+                                            onChange={(e) => handleChange("vehiclePlate", e.target.value)}
+                                        />
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label htmlFor="taxiNumber">Número Económico (opcional)</Label>
+                                        <Input
+                                            id="taxiNumber"
+                                            placeholder="123"
                                             value={formData.taxiNumber}
                                             onChange={(e) => handleChange("taxiNumber", e.target.value)}
                                         />

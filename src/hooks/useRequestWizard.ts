@@ -94,7 +94,7 @@ export const useRequestWizard = () => {
                     estimated_price: data.offerPrice
                         ? parseFloat(data.offerPrice)
                         : (data.serviceType === "taxi" ? 33 : 22),
-                    request_expires_at: new Date(Date.now() + 25 * 1000).toISOString(), // 25 seconds
+                    request_expires_at: new Date(Date.now() + 40 * 1000).toISOString(), // 40 seconds
                 })
                 .select()
                 .single();

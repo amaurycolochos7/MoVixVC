@@ -10,7 +10,7 @@ import { useServiceDriverLocation } from "@/hooks/useServiceDriverLocation";
 import { Button } from "@/components/ui/button";
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || "";
-const MAP_STYLE = "mapbox://styles/mapbox/streets-v12";
+const MAP_STYLE = "mapbox://styles/mapbox/outdoors-v12";
 
 // Default center (CDMX) to prevent Null Island (0,0)
 const DEFAULT_CENTER = { lat: 19.4326, lng: -99.1332 };

@@ -148,6 +148,7 @@ export interface ForwardGeocodeResult {
 /**
  * Forward geocode: Convert an address/query string into GPS coordinates.
  * Uses Mapbox Geocoding API for address search.
+ * Biased towards Venustiano Carranza, Chiapas (30200) for local searches.
  */
 export async function forwardGeocode(
     query: string
@@ -161,8 +162,13 @@ export async function forwardGeocode(
         return [];
     }
 
+    // Venustiano Carranza, Chiapas coordinates for proximity bias - Centro
+    const VENUSTIANO_CARRANZA = { lat: 16.3396, lng: -92.5651 };
+    // Bounding box around Venustiano Carranza area (expanded ~30km radius)
+    const bbox = "-92.70,16.20,-92.40,16.50";
+
     const encodedQuery = encodeURIComponent(query);
-    const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodedQuery}.json?access_token=${MAPBOX_TOKEN}&language=es&country=MX&limit=5`;
+    const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodedQuery}.json?access_token=${MAPBOX_TOKEN}&language=es&country=MX&limit=5&proximity=${VENUSTIANO_CARRANZA.lng},${VENUSTIANO_CARRANZA.lat}&bbox=${bbox}`;
 
     try {
         const response = await fetch(url);
