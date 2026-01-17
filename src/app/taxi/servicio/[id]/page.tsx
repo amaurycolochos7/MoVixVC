@@ -25,15 +25,16 @@ import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { useDriverLocation } from "@/hooks/useDriverLocation";
 import { DriverNavigationMap } from "@/components/maps/driver-navigation-map";
+import { BoardingPinModal } from "@/components/driver/boarding-pin-modal";
 import { cn } from "@/lib/utils";
 
 // Tracking steps configuration
 const TRACKING_STEPS = [
-    { id: "accepted", label: "Aceptado", actionLabel: "Iniciar viaje", icon: CheckCircle },
-    { id: "on_the_way", label: "En camino", actionLabel: "Notificar llegada", icon: Car },
-    { id: "nearby", label: "Cerca", actionLabel: "Notificar llegada", icon: MapPin }, // Auto-triggered usually
-    { id: "arrived", label: "Llegó", actionLabel: "Pasajero a bordo", icon: MapPin },
-    { id: "picked_up", label: "En viaje", actionLabel: "Llegar a destino", icon: User },
+    { id: "accepted", label: "Aceptado", actionLabel: "Salir hacia el cliente", icon: CheckCircle },
+    { id: "on_the_way", label: "En camino", actionLabel: "Ya llegué al cliente", icon: Car },
+    { id: "nearby", label: "Cerca", actionLabel: "Confirmar llegada", icon: MapPin },
+    { id: "arrived", label: "Llegó", actionLabel: "Cliente a bordo", icon: MapPin },
+    { id: "picked_up", label: "En viaje", actionLabel: "Llegando al destino", icon: User },
     { id: "in_transit", label: "Llegando", actionLabel: "Finalizar viaje", icon: Navigation },
 ];
 
@@ -83,6 +84,7 @@ export default function DriverServicePage() {
     const [loading, setLoading] = useState(true);
     const [showCancelModal, setShowCancelModal] = useState(false);
     const [showPaymentModal, setShowPaymentModal] = useState(false);
+    const [showPinModal, setShowPinModal] = useState(false);
     const [selectedReason, setSelectedReason] = useState<string | null>(null);
     const [cancelling, setCancelling] = useState(false);
     const [updatingStep, setUpdatingStep] = useState(false);
@@ -204,11 +206,58 @@ export default function DriverServicePage() {
         setCancelling(true);
         try {
             const reasonLabel = CANCELLATION_REASONS.find(r => r.id === selectedReason)?.label || selectedReason;
-            await supabase.from("service_requests").update({
-                status: "cancelled", cancelled_at: new Date().toISOString(), cancellation_reason: `Cancelado por conductor: ${reasonLabel}`
-            }).eq("id", requestId);
+
+            // Use RPC for atomic update + availability reset
+            const { data, error } = await supabase.rpc('cancel_service_by_driver', {
+                p_request_id: requestId,
+                p_reason: `Cancelado por conductor: ${reasonLabel}`
+            });
+
+            if (error) throw error;
+            if (data && !data.success) throw new Error(data.error || "Error desconocido");
+
+            toast.success("Viaje cancelado exitosamente");
             router.push("/taxi");
-        } catch (e) { toast.error("Error"); } finally { setCancelling(false); }
+        } catch (e: any) {
+            console.error("Cancellation error:", e);
+            toast.error("Error al cancelar: " + (e.message || "Desconocido"));
+        } finally {
+            setCancelling(false);
+        }
+    };
+
+    const handleValidatePin = async (pin: string): Promise<boolean> => {
+        try {
+            console.log("🔐 Validating boarding PIN:", pin);
+
+            const { data, error } = await supabase.rpc('validate_boarding_pin', {
+                p_request_id: requestId,
+                p_pin: pin
+            });
+
+            if (error) {
+                console.error("❌ PIN validation error:", error);
+                toast.error("Error al validar código");
+                return false;
+            }
+
+            if (!data.success) {
+                console.log("❌ Invalid PIN:", data.message);
+                toast.error(data.message || "Código incorrecto");
+                return false;
+            }
+
+            console.log("✅ PIN validated successfully!");
+            toast.success("¡Viaje iniciado! 🚗");
+            setShowPinModal(false);
+            fetchRequest(); // Refresh to get updated status
+            return true;
+
+        } catch (err: any) {
+            console.error("❌ Error validating PIN:", err);
+            toast.error("Error al validar código");
+            return false;
+        }
     };
 
     const openMapsNavigation = () => {
@@ -228,7 +277,7 @@ export default function DriverServicePage() {
         <div className="relative h-[100dvh] w-full overflow-hidden bg-gray-100 flex flex-col">
 
             {/* 1. MAP BACKGROUND */}
-            <div className="absolute inset-0 z-0">
+            <div className="absolute inset-0 z-0 pointer-events-auto">
                 <DriverNavigationMap
                     pickupLocation={{ lat: request.origin_lat, lng: request.origin_lng }}
                     dropoffLocation={
@@ -244,7 +293,7 @@ export default function DriverServicePage() {
             </div>
 
             {/* 2. TOP BAR (Minimal) */}
-            <div className="absolute top-0 left-0 right-0 z-20 p-4 pt-4 flex justify-center pointer-events-none">
+            <div className="absolute top-0 left-0 right-0 z-20 p-4 pt-4 flex flex-col items-center gap-2 pointer-events-none">
                 <div className="bg-white/95 backdrop-blur-md shadow-sm border border-gray-100 rounded-full px-4 py-2 flex items-center gap-3 pointer-events-auto max-w-[90%]">
                     <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
                     <span className="text-sm font-semibold truncate max-w-[120px]">
@@ -257,6 +306,16 @@ export default function DriverServicePage() {
                     <Button size="icon" variant="ghost" className="w-6 h-6 ml-1 rounded-full text-green-600 hover:bg-green-50" onClick={() => window.open(`tel:${client?.phone}`)}>
                         <Phone className="w-3.5 h-3.5" />
                     </Button>
+                </div>
+
+                {/* Phase Indicator Badge */}
+                <div className={cn(
+                    "px-3 py-1 rounded-full text-xs font-bold shadow-md border-2 transition-all pointer-events-none",
+                    isPickupPhase
+                        ? "bg-blue-500 text-white border-blue-300"
+                        : "bg-green-500 text-white border-green-300"
+                )}>
+                    {isPickupPhase ? "🔵 Fase 1: Recoger cliente" : "🟢 Fase 2: Ir al destino"}
                 </div>
             </div>
 
@@ -298,10 +357,13 @@ export default function DriverServicePage() {
                                     {routeMetrics.distance.toFixed(1)} km
                                 </span>
                                 <span className="text-gray-400 text-sm">•</span>
-                                <span className="text-sm text-gray-500 truncate max-w-[150px]">
-                                    {address}
+                                <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-gray-100 text-gray-700">
+                                    {isPickupPhase ? "→ Cliente" : "→ Destino"}
                                 </span>
                             </div>
+                            <p className="text-xs text-gray-500 truncate max-w-[220px] mt-1">
+                                {address}
+                            </p>
                         </div>
 
                         {/* Navigation FAB */}
@@ -317,6 +379,17 @@ export default function DriverServicePage() {
 
                     {/* Expanded Content */}
                     <div className={cn("space-y-4 transition-opacity duration-300", isSheetExpanded ? "opacity-100" : "opacity-0 hidden")}>
+
+                        {/* INICIAR VIAJE CON CLIENTE - Always Visible */}
+                        {request.status !== 'in_progress' && request.status !== 'completed' && (
+                            <Button
+                                className="w-full h-16 text-lg font-bold shadow-lg bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl border-2 border-blue-500/30"
+                                onClick={() => setShowPinModal(true)}
+                            >
+                                <Shield className="w-6 h-6 mr-3" />
+                                INICIAR VIAJE CON CLIENTE
+                            </Button>
+                        )}
 
                         {/* Action Primary Button */}
                         {!isLastStep ? (
@@ -439,6 +512,13 @@ export default function DriverServicePage() {
                     </Card>
                 </div>
             )}
+
+            {/* Boarding PIN Modal */}
+            <BoardingPinModal
+                open={showPinModal}
+                onClose={() => setShowPinModal(false)}
+                onValidate={handleValidatePin}
+            />
 
         </div>
     );

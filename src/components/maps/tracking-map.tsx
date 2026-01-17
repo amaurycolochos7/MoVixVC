@@ -8,8 +8,8 @@ import "mapbox-gl/dist/mapbox-gl.css";
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || "";
 
-// Dark style for premium look
-const MAP_STYLE = "mapbox://styles/mapbox/dark-v11";
+// Outdoors style - detailed terrain, buildings, parks, and POIs
+const MAP_STYLE = "mapbox://styles/mapbox/outdoors-v12";
 
 interface TrackingMapProps {
     /** Client pickup location */
@@ -216,10 +216,10 @@ export function TrackingMap({
                         </p>
                     </div>
                     <div className={`px-3 py-1 rounded-full text-sm font-semibold ${status === "arrived"
-                            ? "bg-green-500 text-white"
-                            : status === "driver_on_way"
-                                ? "bg-yellow-400 text-gray-900"
-                                : "bg-blue-500 text-white"
+                        ? "bg-green-500 text-white"
+                        : status === "driver_on_way"
+                            ? "bg-yellow-400 text-gray-900"
+                            : "bg-blue-500 text-white"
                         }`}>
                         {status === "arrived"
                             ? "Conductor llegó"

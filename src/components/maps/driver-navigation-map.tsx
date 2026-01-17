@@ -85,19 +85,34 @@ export function DriverNavigationMap({
     // pickup: accepted, on_the_way, nearby, arrived
     // trip: picked_up, in_transit
     const phase = useMemo(() => {
-        if (["picked_up", "in_transit"].includes(trackingStep)) {
-            return "trip";
+        const newPhase = ["picked_up", "in_transit"].includes(trackingStep) ? "trip" : "pickup";
+
+        if (process.env.NODE_ENV === "development") {
+            console.log(`📍 [DriverNavigationMap] Phase calculation:`, {
+                trackingStep,
+                phase: newPhase,
+                hasDropoff: !!dropoffLocation
+            });
         }
-        return "pickup";
-    }, [trackingStep]);
+
+        return newPhase;
+    }, [trackingStep, dropoffLocation]);
 
     // Smart route calculation
     const smartRoute = useSmartRoute({
-        driverPosition: isValidCoords(animatedDriver.position) ? animatedDriver.position : (isValidCoords(driverLocation) ? driverLocation : null),
+        driverPosition: isValidCoords(animatedDriver.position) ? animatedDriver.position : (isValidCoords(driverLocation) ? driverLocation! : null),
         origin: isValidCoords(pickupLocation) ? pickupLocation : DEFAULT_CENTER,
         destination: dropoffLocation || undefined,
         phase: phase === "trip" ? "trip" : "pickup",
     });
+
+    // Force recalculation when phase changes
+    useEffect(() => {
+        if (phase === "trip" && dropoffLocation) {
+            console.log("🔄 Phase changed to TRIP - forcing route recalculation to dropoff");
+            smartRoute.forceRecalculate();
+        }
+    }, [phase, dropoffLocation]);
 
     // Notify parent of metrics changes
     useEffect(() => {
@@ -130,10 +145,10 @@ export function DriverNavigationMap({
     const followCamera = useFollowCamera({
         mapRef,
         targetPosition: cameraTarget,
-        targetBearing: animatedDriver.bearing,
+        targetBearing: 0, // No rotation - keep north up
         enabled: hasDriverLocation, // Only follow if we actually have a driver location
         zoom: 16,
-        pitch: 35,
+        pitch: 0, // Flat 2D view
     });
 
     // Detect user interaction to disable follow
@@ -224,16 +239,25 @@ export function DriverNavigationMap({
                     longitude: cameraTarget.lng,
                     latitude: cameraTarget.lat,
                     zoom: 15,
-                    pitch: 35,
+                    pitch: 0, // Flat 2D view - no tilt
+                    bearing: 0, // No rotation
                 }}
                 style={{ width: "100%", height: "100%" }}
                 mapStyle={MAP_STYLE}
                 attributionControl={false}
                 logoPosition="bottom-left"
                 scrollZoom={true}
-                touchZoomRotate={true}
+                touchZoomRotate={{
+                    disableRotation: true // Allow zoom but no rotation with touch
+                }}
+                touchPitch={false} // Disable pitch changes with touch
                 doubleClickZoom={true}
                 dragPan={true}
+                dragRotate={false} // Disable rotation with drag
+                pitchWithRotate={false}
+                keyboard={false} // Disable keyboard shortcuts
+                maxPitch={0} // Lock pitch at 0
+                minPitch={0}
             >
                 {/* Route line */}
                 {smartRoute.route && (
@@ -286,16 +310,18 @@ export function DriverNavigationMap({
                 )}
             </Map>
 
-            {/* Follow button - Floating Action Button (FAB) Style */}
-            <div className="absolute top-24 right-4 z-20">
+            {/* Map controls - Right side */}
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 z-20 flex flex-col gap-2">
+                {/* Follow/Center Button */}
                 <Button
                     size="icon"
-                    className={`rounded-full w-12 h-12 shadow-md transition-all ${followCamera.isFollowing
+                    className={`rounded-full w-11 h-11 shadow-lg transition-all ${followCamera.isFollowing
                         ? "bg-blue-600 hover:bg-blue-700 text-white"
                         : "bg-white hover:bg-gray-50 text-gray-700 border border-gray-200"
                         }`}
                     onClick={followCamera.toggleFollow}
-                    disabled={!hasDriverLocation} // Disable if no GPS
+                    disabled={!hasDriverLocation}
+                    title={followCamera.isFollowing ? "Modo libre" : "Centrar en mí"}
                 >
                     <Crosshair className={`w-5 h-5 ${followCamera.isFollowing ? "animate-pulse" : ""}`} />
                 </Button>
@@ -303,8 +329,9 @@ export function DriverNavigationMap({
 
             {/* Waiting for GPS Banner */}
             {!hasDriverLocation && (
-                <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-black/60 backdrop-blur text-white text-xs px-3 py-1 rounded-full pointer-events-none">
-                    Esperando GPS...
+                <div className="absolute top-3 left-1/2 -translate-x-1/2 bg-black/70 backdrop-blur text-white text-xs px-4 py-2 rounded-full pointer-events-none flex items-center gap-2">
+                    <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse" />
+                    Obteniendo GPS...
                 </div>
             )}
         </div>

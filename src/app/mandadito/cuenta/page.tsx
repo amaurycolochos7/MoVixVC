@@ -14,9 +14,10 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/contexts/auth-context";
+import { ServiceDetailModal } from "@/components/mandadito/service-detail-modal";
 
-// Flat commission per trip (mandadito = $2 MXN)
-const COMMISSION_PER_TRIP = 2;
+// Flat commission per trip (mandadito = $3 MXN)
+const COMMISSION_PER_TRIP = 3;
 
 interface CompletedTrip {
     id: string;
@@ -43,6 +44,7 @@ export default function MandaditoCuentaPage() {
 
     const [loading, setLoading] = useState(true);
     const [trips, setTrips] = useState<CompletedTrip[]>([]);
+    const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
     const [summary, setSummary] = useState<EarningsSummary>({
         totalTrips: 0,
         grossEarnings: 0,
@@ -77,14 +79,14 @@ export default function MandaditoCuentaPage() {
                 setTrips(completedTrips.slice(0, 10));
 
                 const grossEarnings = completedTrips.reduce((sum, trip) => sum + (trip.final_price || 0), 0);
-                const commission = completedTrips.length * COMMISSION_PER_TRIP;
+                const commission = grossEarnings * 0.1071; // ~10.71% commission (3/28)
                 const netEarnings = grossEarnings - commission;
 
                 const weeklyTrips = completedTrips.filter(trip =>
                     new Date(trip.completed_at) >= startOfWeek
                 );
                 const weeklyGross = weeklyTrips.reduce((sum, trip) => sum + (trip.final_price || 0), 0);
-                const weeklyCommission = weeklyTrips.length * COMMISSION_PER_TRIP;
+                const weeklyCommission = weeklyGross * 0.1071;
                 const weeklyNet = weeklyGross - weeklyCommission;
 
                 setSummary({
@@ -141,8 +143,8 @@ export default function MandaditoCuentaPage() {
 
                     <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/20">
                         <div>
-                            <p className="text-xs text-white/50">Bruto</p>
-                            <p className="font-semibold">${summary.weeklyGross.toFixed(2)}</p>
+                            <p className="text-xs text-white/50">Ganado</p>
+                            <p className="font-semibold">${summary.weeklyNet.toFixed(2)}</p>
                         </div>
                         <div>
                             <p className="text-xs text-white/50">Mandados</p>
@@ -163,7 +165,7 @@ export default function MandaditoCuentaPage() {
                                 <CheckCircle className="h-5 w-5 text-green-600" />
                             )}
                             <div>
-                                <p className="text-sm font-medium text-slate-700">Comisión ($2/mandado)</p>
+                                <p className="text-sm font-medium text-slate-700">Comisión ($3/mandado)</p>
                                 <p className="text-xs text-slate-500">Corte: {getEndOfWeek()}</p>
                             </div>
                         </div>
@@ -185,8 +187,8 @@ export default function MandaditoCuentaPage() {
                 </Card>
                 <Card className="p-3 text-center">
                     <TrendingUp className="h-5 w-5 mx-auto mb-1 text-green-500" />
-                    <p className="text-lg font-bold">${summary.grossEarnings.toFixed(0)}</p>
-                    <p className="text-xs text-text-secondary">Total Bruto</p>
+                    <p className="text-lg font-bold">${summary.netEarnings.toFixed(0)}</p>
+                    <p className="text-xs text-text-secondary">Ganado</p>
                 </Card>
                 <Card className="p-3 text-center">
                     <DollarSign className="h-5 w-5 mx-auto mb-1 text-amber-500" />
@@ -206,27 +208,35 @@ export default function MandaditoCuentaPage() {
                         </CardContent>
                     </Card>
                 ) : (
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                         {trips.map((trip) => (
-                            <Card key={trip.id} className="p-3">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex-1">
-                                        <p className="text-sm font-medium truncate">
+                            <Card
+                                key={trip.id}
+                                className="overflow-hidden cursor-pointer hover:shadow-md transition-shadow"
+                                onClick={() => setSelectedServiceId(trip.id)}
+                            >
+                                <div className="p-4 flex gap-3">
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-medium text-slate-900 mb-1 line-clamp-2">
                                             {trip.destination_address || trip.origin_address}
                                         </p>
-                                        <p className="text-xs text-text-secondary flex items-center gap-1">
-                                            <Clock className="h-3 w-3" />
-                                            {new Date(trip.completed_at).toLocaleDateString('es-MX', {
-                                                day: 'numeric',
-                                                month: 'short',
-                                                hour: '2-digit',
-                                                minute: '2-digit'
-                                            })}
-                                        </p>
+                                        <div className="flex items-center gap-1 text-xs text-slate-500">
+                                            <Clock className="h-3 w-3 flex-shrink-0" />
+                                            <span>
+                                                {new Date(trip.completed_at).toLocaleDateString('es-MX', {
+                                                    day: 'numeric',
+                                                    month: 'short',
+                                                    hour: '2-digit',
+                                                    minute: '2-digit'
+                                                })}
+                                            </span>
+                                        </div>
                                     </div>
-                                    <div className="text-right">
-                                        <p className="font-bold text-green-600">${trip.final_price}</p>
-                                        <p className="text-xs text-amber-600">-${COMMISSION_PER_TRIP}</p>
+                                    <div className="flex-shrink-0 text-right">
+                                        <p className="text-lg font-bold text-green-600">
+                                            ${(trip.final_price - COMMISSION_PER_TRIP).toFixed(2)}
+                                        </p>
+                                        <p className="text-xs text-slate-500">neto</p>
                                     </div>
                                 </div>
                             </Card>
@@ -234,6 +244,14 @@ export default function MandaditoCuentaPage() {
                     </div>
                 )}
             </section>
+
+            {/* Service Detail Modal */}
+            {selectedServiceId && (
+                <ServiceDetailModal
+                    serviceId={selectedServiceId}
+                    onClose={() => setSelectedServiceId(null)}
+                />
+            )}
         </div>
     );
 }

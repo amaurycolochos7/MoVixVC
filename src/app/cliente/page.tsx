@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Car, Package, Clock, Loader2 } from "lucide-react";
+import { Car, Bike, Clock, Loader2, MapPin, ChevronRight, ShoppingBag, Package } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/contexts/auth-context";
@@ -20,7 +19,7 @@ interface RecentTrip {
 
 export default function ClienteHomePage() {
     const supabase = createClient();
-    const { user } = useAuth();
+    const { user, profile } = useAuth();
     const [recentTrips, setRecentTrips] = useState<RecentTrip[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -38,7 +37,7 @@ export default function ClienteHomePage() {
                     .eq("client_id", user.id)
                     .in("status", ["completed", "cancelled"])
                     .order("created_at", { ascending: false })
-                    .limit(5);
+                    .limit(3);
 
                 if (!error && data) {
                     setRecentTrips(data);
@@ -75,101 +74,144 @@ export default function ClienteHomePage() {
         }
     };
 
+    const getGreeting = () => {
+        const hour = new Date().getHours();
+        if (hour < 12) return "Buenos días";
+        if (hour < 18) return "Buenas tardes";
+        return "Buenas noches";
+    };
+
+    const firstName = profile?.full_name?.split(' ')[0] || 'Usuario';
+
     return (
-        <div className="space-y-8 pb-20">
-            <header className="flex items-center justify-between px-1">
+        <div className="min-h-screen bg-gray-50">
+            {/* Header with gradient */}
+            <div className="bg-gradient-to-br from-orange-500 via-orange-400 to-amber-400 px-5 pt-12 pb-16 rounded-b-[2rem]">
+                {/* Greeting */}
                 <div>
-                    <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent">MoVix</h1>
-                    <p className="text-sm text-text-muted">¿Qué quieres hacer hoy?</p>
+                    <p className="text-white/80 text-sm font-medium">{getGreeting()}</p>
+                    <h1 className="text-2xl font-bold text-white">{firstName}</h1>
                 </div>
-            </header>
+            </div>
 
-            <section className="grid grid-cols-2 gap-4">
-                <Link href="/cliente/taxi">
-                    <Card className="hover:border-primary/50 cursor-pointer transition-all hover:shadow-lg hover:-translate-y-1 bg-gradient-to-br from-white to-blue-50/50 border-0 shadow-md h-44">
-                        <CardContent className="flex flex-col items-center justify-center h-full gap-2 p-4">
-                            <div className="p-3 bg-blue-100 rounded-full text-blue-600">
-                                <Car className="h-8 w-8" />
+            {/* Main Content */}
+            <div className="px-5 -mt-10">
+                {/* Service Cards */}
+                <div className="grid grid-cols-2 gap-4 mb-6">
+                    {/* Taxi Card */}
+                    <Link href="/cliente/taxi">
+                        <div className="bg-white rounded-2xl p-5 shadow-md hover:shadow-lg transition-shadow h-full">
+                            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center mb-4 shadow-md shadow-blue-200">
+                                <Car className="h-6 w-6 text-white" />
                             </div>
-                            <span className="font-bold text-lg text-slate-700">Taxi</span>
-                            <span className="text-xs text-slate-500 text-center">Transporte rápido y seguro</span>
-                        </CardContent>
-                    </Card>
-                </Link>
-                <Link href="/cliente/mandadito">
-                    <Card className="hover:border-primary/50 cursor-pointer transition-all hover:shadow-lg hover:-translate-y-1 bg-gradient-to-br from-white to-purple-50/50 border-0 shadow-md h-44">
-                        <CardContent className="flex flex-col items-center justify-center h-full gap-2 p-4">
-                            <div className="p-3 bg-purple-100 rounded-full text-purple-600">
-                                <Package className="h-8 w-8" />
-                            </div>
-                            <span className="font-bold text-lg text-slate-700">Mandadito</span>
-                            <span className="text-xs text-slate-500 text-center">Envía o recoge paquetes</span>
-                        </CardContent>
-                    </Card>
-                </Link>
-            </section>
+                            <h3 className="font-bold text-gray-900">Taxi</h3>
+                            <p className="text-gray-500 text-xs mt-1">Viaja seguro</p>
+                        </div>
+                    </Link>
 
-            <section>
-                <div className="flex items-center justify-between mb-4 px-1">
-                    <h2 className="text-lg font-bold text-slate-800">Historial Reciente</h2>
-                    <Link href="/cliente/historial" className="text-xs text-primary font-semibold hover:underline">
-                        Ver todo
+                    {/* Mandadito Card */}
+                    <Link href="/cliente/mandadito">
+                        <div className="bg-white rounded-2xl p-5 shadow-md hover:shadow-lg transition-shadow h-full">
+                            <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center mb-4 shadow-md shadow-orange-200">
+                                <Bike className="h-6 w-6 text-white" />
+                            </div>
+                            <h3 className="font-bold text-gray-900">Mandadito</h3>
+                            <p className="text-gray-500 text-xs mt-1">Envíos y compras</p>
+                        </div>
                     </Link>
                 </div>
 
-                {loading ? (
-                    <div className="flex justify-center py-8">
-                        <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                    </div>
-                ) : recentTrips.length === 0 ? (
-                    <Card className="bg-slate-50 border-dashed border-2 border-slate-200 shadow-none">
-                        <CardContent className="flex flex-col items-center justify-center py-10 text-text-muted gap-2">
-                            <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mb-2">
-                                <Clock className="h-6 w-6 text-slate-300" />
+                {/* Quick Actions */}
+                <div className="bg-white rounded-2xl p-5 shadow-sm mb-6">
+                    <h3 className="font-semibold text-gray-900 mb-4">Servicios populares</h3>
+                    <div className="grid grid-cols-4 gap-4">
+                        <Link href="/cliente/mandadito" className="flex flex-col items-center gap-2">
+                            <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
+                                <ShoppingBag className="h-5 w-5 text-purple-600" />
                             </div>
-                            <p className="font-medium text-slate-400">Aún no tienes viajes</p>
-                            <Link href="/cliente/taxi" className="text-primary hover:underline">
+                            <span className="text-xs text-gray-600 text-center">Compras</span>
+                        </Link>
+                        <Link href="/cliente/mandadito" className="flex flex-col items-center gap-2">
+                            <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center">
+                                <Package className="h-5 w-5 text-emerald-600" />
+                            </div>
+                            <span className="text-xs text-gray-600 text-center">Envíos</span>
+                        </Link>
+                        <Link href="/cliente/taxi" className="flex flex-col items-center gap-2">
+                            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                                <Car className="h-5 w-5 text-blue-600" />
+                            </div>
+                            <span className="text-xs text-gray-600 text-center">Viajes</span>
+                        </Link>
+                        <Link href="/cliente/historial" className="flex flex-col items-center gap-2">
+                            <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center">
+                                <Clock className="h-5 w-5 text-amber-600" />
+                            </div>
+                            <span className="text-xs text-gray-600 text-center">Historial</span>
+                        </Link>
+                    </div>
+                </div>
+
+                {/* Recent Trips */}
+                <div className="mb-24">
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className="font-semibold text-gray-900">Historial reciente</h3>
+                        <Link href="/cliente/historial" className="text-sm text-orange-500 font-medium">
+                            Ver todo
+                        </Link>
+                    </div>
+
+                    {loading ? (
+                        <div className="flex justify-center py-8">
+                            <Loader2 className="h-6 w-6 animate-spin text-orange-500" />
+                        </div>
+                    ) : recentTrips.length === 0 ? (
+                        <div className="bg-white rounded-2xl p-8 text-center shadow-sm">
+                            <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <Clock className="h-7 w-7 text-gray-300" />
+                            </div>
+                            <p className="text-gray-500 mb-2 font-medium">Aún no tienes viajes</p>
+                            <Link href="/cliente/taxi" className="text-orange-500 font-medium text-sm">
                                 Solicitar tu primer viaje
                             </Link>
-                        </CardContent>
-                    </Card>
-                ) : (
-                    <div className="space-y-3">
-                        {recentTrips.map((trip) => (
-                            <Card key={trip.id} className="border-0 shadow-sm bg-white hover:bg-slate-50 transition-colors">
-                                <CardContent className="p-4 flex items-center justify-between">
-                                    <div className="flex items-center gap-4">
-                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${trip.service_type === 'taxi'
-                                                ? 'bg-blue-100'
-                                                : 'bg-purple-100'
-                                            }`}>
-                                            {trip.service_type === 'taxi' ? (
-                                                <Car className={`w-5 h-5 ${trip.status === 'cancelled' ? 'text-red-500' : 'text-blue-600'}`} />
-                                            ) : (
-                                                <Package className={`w-5 h-5 ${trip.status === 'cancelled' ? 'text-red-500' : 'text-purple-600'}`} />
-                                            )}
-                                        </div>
-                                        <div>
-                                            <p className="font-semibold text-slate-800 truncate max-w-[180px]">
-                                                {trip.destination_address || trip.origin_address || 'Viaje'}
-                                            </p>
-                                            <p className="text-xs text-slate-500">
-                                                {formatDate(trip.completed_at || trip.created_at)} • {
-                                                    trip.status === 'completed' ? 'Finalizado' :
-                                                        trip.status === 'cancelled' ? 'Cancelado' : trip.status
-                                                }
-                                            </p>
-                                        </div>
+                        </div>
+                    ) : (
+                        <div className="space-y-3">
+                            {recentTrips.map((trip) => (
+                                <div key={trip.id} className="bg-white rounded-2xl p-4 shadow-sm flex items-center gap-4">
+                                    <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${trip.service_type === 'taxi'
+                                        ? 'bg-blue-100'
+                                        : 'bg-orange-100'
+                                        }`}>
+                                        {trip.service_type === 'taxi' ? (
+                                            <Car className={`w-5 h-5 ${trip.status === 'cancelled' ? 'text-red-500' : 'text-blue-600'}`} />
+                                        ) : (
+                                            <Bike className={`w-5 h-5 ${trip.status === 'cancelled' ? 'text-red-500' : 'text-orange-600'}`} />
+                                        )}
                                     </div>
-                                    <span className={`font-bold ${trip.status === 'cancelled' ? 'text-red-500' : 'text-slate-700'}`}>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="font-medium text-gray-900 truncate text-sm">
+                                            {trip.destination_address || trip.origin_address || 'Viaje'}
+                                        </p>
+                                        <p className="text-xs text-gray-500 mt-0.5">
+                                            {formatDate(trip.completed_at || trip.created_at)} • {
+                                                trip.status === 'completed' ? (
+                                                    <span className="text-emerald-600">Completado</span>
+                                                ) : trip.status === 'cancelled' ? (
+                                                    <span className="text-red-500">Cancelado</span>
+                                                ) : trip.status
+                                            }
+                                        </p>
+                                    </div>
+                                    <span className={`font-bold flex-shrink-0 ${trip.status === 'cancelled' ? 'text-gray-400' : 'text-gray-900'}`}>
                                         ${trip.final_price || 0}
                                     </span>
-                                </CardContent>
-                            </Card>
-                        ))}
-                    </div>
-                )}
-            </section>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </div>
         </div>
     );
 }

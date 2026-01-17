@@ -9,6 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Car, Phone, Shield, Share2, MapPin, X, MessageCircle } from "lucide-react";
 import CarIcon from "@/assets/map/car-topdown.svg";
+import { BoardingPinDisplay } from "@/components/client/boarding-pin-display";
 
 interface RideBottomSheetProps {
     eta: number; // minutes
@@ -20,6 +21,7 @@ interface RideBottomSheetProps {
     driverPlate?: string;
     driverCar?: string;
     price?: number;
+    boardingPin?: string; // NEW: PIN for boarding confirmation
     isStatusChanging?: boolean; // NEW: Trigger animation on status change
     onCancel?: () => void;
     onCall?: () => void;
@@ -37,6 +39,7 @@ export function RideBottomSheet({
     driverPlate = "ABC-123",
     driverCar = "Nissan Versa",
     price,
+    boardingPin,
     isStatusChanging = false,
     onCancel,
     onCall,
@@ -80,7 +83,7 @@ export function RideBottomSheet({
                 fixed bottom-0 left-0 right-0 z-40 
                 bg-white/95 backdrop-blur-md shadow-[0_-5px_20px_rgba(0,0,0,0.1)]
                 transition-all duration-500 ease-in-out border-t border-gray-100
-                ${isExpanded ? 'h-[360px] rounded-t-3xl' : 'h-[160px] rounded-t-2xl'}
+                ${isExpanded ? 'h-[500px] rounded-t-3xl' : 'h-[160px] rounded-t-2xl'}
             `}
         >
             {/* Drag Handle / Click area to toggle */}
@@ -133,6 +136,13 @@ export function RideBottomSheet({
                     overflow-y-auto transition-opacity duration-300 flex-1
                     ${isExpanded ? 'opacity-100 visible' : 'opacity-0 invisible h-0'}
                 `}>
+                    {/* PIN Display - Show only if antes de que se active el in_progress */}
+                    {boardingPin && status !== "picked_up" && status !== "in_transit" && (
+                        <div className="mb-4">
+                            <BoardingPinDisplay pin={boardingPin} driverName={driverName} />
+                        </div>
+                    )}
+
                     {/* Actions Grid */}
                     <div className="grid grid-cols-4 gap-3 mb-6">
                         <div className="flex flex-col items-center gap-1">

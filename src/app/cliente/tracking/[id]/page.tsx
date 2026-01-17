@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Loader2, Car, MapPin, CheckCircle, Navigation } from "lucide-react";
+import { MapPin, Phone, MessageCircle, Share2, Star, Car, CheckCircle, Loader2, Navigation } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/contexts/auth-context";
 import { toast } from "sonner";
@@ -10,6 +10,10 @@ import { TripRatingModal } from "@/components/rating";
 import { ClientTrackingMap } from "@/components/maps/client-tracking-map";
 import { RideBottomSheet } from "@/components/tracking/ride-bottom-sheet";
 import { RideTopBar } from "@/components/tracking/ride-top-bar";
+import { OfferModal } from "@/components/tracking/offer-modal";
+import { CancellationModal } from "@/components/tracking/cancellation-modal";
+import { useServiceDriverLocation } from "@/hooks/useServiceDriverLocation";
+import { MandaditoClientTracking } from "@/components/tracking/mandadito-client-tracking";
 
 // Make sure to remove any other imports if they are unused
 // import { TripAnimation } from "@/components/tracking"; 
@@ -32,6 +36,8 @@ interface ServiceRequest {
     assigned_driver_id: string | null;
     notes: string;
     cancellation_reason: string | null;
+    boarding_pin: string | null;
+    request_expires_at?: string;
 }
 
 interface Driver {
@@ -58,14 +64,65 @@ export default function ClienteTrackingPage() {
     const [showRatingModal, setShowRatingModal] = useState(false);
     const [hasRated, setHasRated] = useState(false);
 
+    // Live driver location for distance checks (Moved up to fix Hook Error)
+    const { lastLocation } = useServiceDriverLocation({ serviceId: requestId });
+
+    // Cancellation Logic States
+    // Cancellation Logic States
+    const [showCancelModal, setShowCancelModal] = useState(false);
+
+    // Timer Logic
+    const [timeLeft, setTimeLeft] = useState(0);
+    const [activeOffer, setActiveOffer] = useState<any>(null);
+
+    useEffect(() => {
+        if (!request || request.status !== 'pending') return;
+
+        const updateTimer = () => {
+            const expiresAt = request.request_expires_at
+                ? new Date(request.request_expires_at).getTime()
+                : new Date(request.created_at).getTime() + (request.service_type === 'mandadito' ? 110000 : 25000);
+
+            const now = Date.now();
+            const left = Math.max(0, Math.ceil((expiresAt - now) / 1000));
+            setTimeLeft(left);
+        };
+
+        updateTimer();
+        const interval = setInterval(updateTimer, 1000);
+        return () => clearInterval(interval);
+    }, [request]);
+
+    const totalDuration = request?.service_type === 'mandadito' ? 110 : 25;
+    const percentage = Math.min(100, Math.max(0, (timeLeft / totalDuration) * 100));
+    const radius = 40;
+    const circumference = 2 * Math.PI * radius;
+    const strokeDashoffset = circumference - (percentage / 100) * circumference;
+
+    // Helper to calculate distance (Haversine)
+    const calculateDistance = (lat1: number, lng1: number, lat2: number, lng2: number) => {
+        const R = 6371e3; // metres
+        const φ1 = lat1 * Math.PI / 180;
+        const φ2 = lat2 * Math.PI / 180;
+        const Δφ = (lat2 - lat1) * Math.PI / 180;
+        const Δλ = (lng2 - lng1) * Math.PI / 180;
+
+        const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+            Math.cos(φ1) * Math.cos(φ2) *
+            Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c; // in meters
+    };
+
     // Mock ETA and Distance since calculating it from hook requires passing it up or using context
     // For now, we'll try to get it from the map component if possible, or just default it
     // In a real refactor, the map component should expose these metrics via a callback
     const [routeMetrics, setRouteMetrics] = useState({ eta: 5, distance: 1.2 });
 
     // Track previous status for change detection
-    const prevStatusRef = useRef<string | undefined>();
-    const prevTrackingStepRef = useRef<string | undefined>();
+    // Track previous status for change detection
+    const prevStatusRef = useRef<string | undefined>(undefined);
+    const prevTrackingStepRef = useRef<string | undefined>(undefined);
     const [isStatusChanging, setIsStatusChanging] = useState(false);
 
     // Show animated toast when status changes
@@ -169,8 +226,39 @@ export default function ClienteTrackingPage() {
         }
     };
 
+    // Fetch and subscribe to offers + request updates
     useEffect(() => {
         fetchRequest();
+
+        // ✨ FETCH INITIAL OFFERS - Check for existing pending offers
+        const fetchOffers = async () => {
+            console.log("🔍 Fetching existing offers for request:", requestId);
+            try {
+                const { data, error } = await supabase
+                    .from("offers")
+                    .select("*")
+                    .eq("request_id", requestId)
+                    .eq("status", "pending")
+                    .order("created_at", { ascending: false });
+
+                if (error) {
+                    console.error("❌ Error fetching offers:", error);
+                    return;
+                }
+
+                console.log("📊 Found offers:", data?.length || 0, data);
+
+                if (data && data.length > 0) {
+                    // Show the most recent offer
+                    setActiveOffer(data[0]);
+                    toast.info("¡Tienes ofertas pendientes!");
+                }
+            } catch (err) {
+                console.error("❌ Exception fetching offers:", err);
+            }
+        };
+
+        fetchOffers(); // Load existing offers on mount
 
         // Subscribe to realtime updates
         const channel = supabase
@@ -181,12 +269,50 @@ export default function ClienteTrackingPage() {
                 table: 'service_requests',
                 filter: `id=eq.${requestId}`
             }, (payload) => {
+                console.log("🔄 Request update:", payload);
                 fetchRequest();
             })
-            .subscribe();
+            // Listen for OFFERS (Global listen to debug filter issues)
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'offers'
+            }, (payload) => {
+                console.log("📨 RAW Offer event received:", payload);
+
+                // Client-side filtering
+                const newData = payload.new as any;
+                console.log("🔍 Offer request_id:", newData?.request_id, "Current requestId:", requestId);
+
+                if (newData.request_id !== requestId) {
+                    console.log("⏭️ Skipping offer - not for this request");
+                    return;
+                }
+
+                console.log("✅ Offer is for this request! Event:", payload.eventType, "Status:", newData.status);
+
+                if (payload.eventType === 'INSERT' && newData.status === 'pending') {
+                    console.log("🎉 NEW OFFER! Setting active offer:", newData);
+                    setActiveOffer(newData);
+                    toast.info("¡Has recibido una oferta!");
+                } else if (payload.eventType === 'UPDATE') {
+                    console.log("🔄 UPDATED OFFER - Status:", newData.status);
+                    if (newData.status === 'pending') {
+                        setActiveOffer(newData);
+                    } else {
+                        setActiveOffer(null);
+                    }
+                }
+            })
+            .subscribe((status) => {
+                console.log("📡 Realtime subscription status:", status);
+            });
 
         // Polling backup
-        const pollInterval = setInterval(fetchRequest, 4000);
+        const pollInterval = setInterval(() => {
+            fetchRequest();
+            fetchOffers(); // Also poll for offers
+        }, 4000);
 
         return () => {
             clearInterval(pollInterval);
@@ -220,14 +346,64 @@ export default function ClienteTrackingPage() {
 
     if (!request) return null;
 
-    const handleCancel = async () => {
-        if (!confirm("¿Seguro que quieres cancelar el viaje?")) return;
+    // Determine if we show map
+    const showMap = request && ["assigned", "in_progress", "picking_up", "arrived"].includes(request.status);
 
+    const getCancellationRestrictions = () => {
+        if (!request || request.status === "pending") return { canCancel: true };
+
+        // 1. Time restriction (5 minutes)
+        if (request.status === "assigned" || request.status === "on_the_way" || request.status === "nearby") {
+            // Use assigned_at or created_at if assigned_at is null/missing
+            // Assuming we track assigned_at in the DB, though the interface above showed it might be null
+            // We'll use created_at as fallback but ideally assigned_at is better
+            const startTime = new Date(request.created_at).getTime();
+            const now = Date.now();
+            const minutesElapsed = (now - startTime) / 1000 / 60;
+
+            if (minutesElapsed > 5) {
+                return {
+                    canCancel: false,
+                    reason: "time" as const,
+                    message: "Han pasado más de 5 minutos desde la solicitud. Para cancelar, contacta a soporte." // Simplified per user request
+                };
+            }
+
+            // 2. Distance restriction (e.g. < 300 meters)
+            if (lastLocation && request.origin_lat && request.origin_lng) {
+                const distMeters = calculateDistance(
+                    lastLocation.lat, lastLocation.lng,
+                    request.origin_lat, request.origin_lng
+                );
+
+                if (distMeters < 300) { // 300 meters threshold
+                    return {
+                        canCancel: false,
+                        reason: "distance" as const,
+                        message: "El conductor está muy cerca de tu ubicación (a menos de 300m). Ya no es posible cancelar."
+                    };
+                }
+            }
+        }
+
+        return { canCancel: true };
+    };
+
+    const handleCancelClick = () => {
+        setShowCancelModal(true);
+    };
+
+    const handleConfirmCancel = async (reason: string) => {
         try {
             await supabase
                 .from("service_requests")
-                .update({ status: "cancelled", cancellation_reason: "Cancelado por usuario" })
+                .update({
+                    status: "cancelled",
+                    cancellation_reason: reason
+                })
                 .eq("id", requestId);
+
+            setShowCancelModal(false);
             toast.success("Viaje cancelado");
             router.push("/cliente");
         } catch (e) {
@@ -235,19 +411,114 @@ export default function ClienteTrackingPage() {
         }
     };
 
-    // Determine if we show map
-    const showMap = ["assigned", "in_progress", "picking_up", "arrived"].includes(request.status);
+    const handleAcceptOffer = async (offer: any) => {
+        console.log("🎯 Accepting offer:", offer);
+        try {
+            // Update offer status
+            const { error: offerError } = await supabase
+                .from('offers')
+                .update({ status: 'accepted' })
+                .eq('id', offer.id);
+
+            if (offerError) {
+                console.error("❌ Error updating offer:", offerError);
+                throw offerError;
+            }
+
+            // Assign driver and update request with CORRECT status
+            const { error: requestError } = await supabase
+                .from('service_requests')
+                .update({
+                    status: 'assigned', // CORRECTED: was 'driver_assigned'
+                    assigned_driver_id: offer.driver_id,
+                    final_price: offer.offered_price // Added final_price
+                })
+                .eq('id', requestId);
+
+            if (requestError) {
+                console.error("❌ Error updating request:", requestError);
+                throw requestError;
+            }
+
+            console.log("✅ Offer accepted successfully!");
+            setActiveOffer(null);
+            toast.success("¡Oferta aceptada! Tu conductor va en camino.");
+            fetchRequest(); // Reload request to show driver info
+        } catch (e) {
+            console.error("❌ Error accepting offer:", e);
+            toast.error("Error al aceptar oferta");
+        }
+    };
+
+    const handleRejectOffer = async (offer: any) => {
+        try {
+            await supabase.from('offers').update({ status: 'rejected' }).eq('id', offer.id);
+            setActiveOffer(null);
+            toast.info("Oferta rechazada");
+        } catch (e) {
+            toast.error("Error al rechazar");
+        }
+    };
+
+    const handleCounterOffer = async (offer: any, amount: number) => {
+        try {
+            await supabase.from('offers').update({
+                offered_price: amount,
+                status: 'pending',
+                offer_type: 'client_counter'
+            }).eq('id', offer.id);
+
+            setActiveOffer(null); // Hide modal while waiting for driver
+            toast.success("Contraoferta enviada al conductor");
+        } catch (e) {
+            toast.error("Error al enviar contraoferta");
+        }
+    };
+
+    const handleRetry = async () => {
+        try {
+            const now = new Date();
+            const newExpires = new Date(now.getTime() + 110 * 1000).toISOString(); // 110s renewal
+
+            await supabase.from("service_requests").update({
+                status: 'pending',
+                created_at: now.toISOString(),
+                request_expires_at: newExpires,
+                assigned_driver_id: null
+            }).eq('id', requestId);
+
+            toast.success("Solicitud reactivada");
+            // Force reload to reset timer state
+            window.location.reload();
+        } catch (e) {
+            toast.error("Error al reintentar");
+        }
+    };
+
+
 
     // If completed or cancelled, show different view or redirect
     if (request.status === "completed" || request.status === "cancelled") {
-        // Just a simple overlay or redirect for now to keep it clean
-        // Ideally reuse the rating modal logic
         if (request.status === "cancelled") {
             router.push("/cliente");
             return null;
         }
     }
 
+    const restrictions = getCancellationRestrictions();
+
+    // Render Mandadito-specific tracking ONLY when driver is assigned (not pending)
+    if (request.service_type === 'mandadito' && request.status !== 'pending') {
+        return (
+            <MandaditoClientTracking
+                requestId={requestId}
+                request={request}
+                driver={driver}
+            />
+        );
+    }
+
+    // Render Taxi tracking (original UI)
     return (
         <div className="relative w-full h-screen overflow-hidden bg-gray-100 flex flex-col">
             {/* Top Bar */}
@@ -261,22 +532,118 @@ export default function ClienteTrackingPage() {
                 />
             )}
 
-            {/* Full Screen Map */}
+            {/* Full Screen Map or Waiting */}
             <div className="flex-1 w-full relative z-0">
                 {showMap ? (
                     <ClientTrackingMap
                         serviceId={requestId}
                         pickupLocation={{ lat: request.origin_lat, lng: request.origin_lng }}
                         dropoffLocation={request.destination_lat ? { lat: request.destination_lat, lng: request.destination_lng } : undefined}
-                        serviceStatus={request.status}
+                        trackingStep={request.tracking_step}
                         className="w-full h-full"
                     // Future: Pass onMetricsChange={(m) => setRouteMetrics(m)}
                     />
                 ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-gray-200">
-                        <div className="text-center">
-                            <Loader2 className="h-8 w-8 animate-spin mx-auto text-gray-500 mb-2" />
-                            <p className="text-gray-500">Buscando conductor...</p>
+                    /* Waiting Screen while pending */
+                    <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-b from-gray-100 to-gray-200 p-6">
+                        <div className="bg-white rounded-2xl shadow-lg p-8 max-w-sm w-full text-center">
+                            {/* Animated loader */}
+                            {/* Animated loader with Countdown */}
+                            <div className="relative w-24 h-24 mx-auto mb-6 flex items-center justify-center">
+                                {/* Background Circle */}
+                                <svg className="absolute inset-0 w-full h-full transform -rotate-90">
+                                    <circle
+                                        cx="48" cy="48" r={radius}
+                                        fill="transparent"
+                                        stroke="#e5e7eb"
+                                        strokeWidth="4"
+                                    />
+                                    {/* Progress Circle */}
+                                    <circle
+                                        cx="48" cy="48" r={radius}
+                                        fill="transparent"
+                                        stroke={percentage > 20 ? "#f97316" : "#ef4444"} // Orange to Red
+                                        strokeWidth="4"
+                                        strokeDasharray={circumference}
+                                        strokeDashoffset={strokeDashoffset}
+                                        strokeLinecap="round"
+                                        className="transition-all duration-1000 ease-linear"
+                                    />
+                                </svg>
+
+                                {/* Icon & Timer */}
+                                <div className="absolute inset-0 flex items-center justify-center flex-col">
+                                    <div className="animate-pulse">
+                                        {request.service_type === 'mandadito' ? (
+                                            <span className="text-2xl mb-1">🛵</span>
+                                        ) : (
+                                            <Car className="w-6 h-6 text-orange-500 mb-1" />
+                                        )}
+                                    </div>
+                                    <span className={`text-sm font-bold ${percentage > 20 ? "text-gray-600" : "text-red-500"}`}>
+                                        {timeLeft}s
+                                    </span>
+                                </div>
+                            </div>
+
+                            <h2 className="text-xl font-bold text-gray-900 mb-2">
+                                {request.service_type === 'mandadito' ? 'Buscando repartidor...' : 'Buscando conductor...'}
+                            </h2>
+                            <p className="text-gray-500 text-sm mb-6">
+                                {request.service_type === 'mandadito'
+                                    ? 'Estamos buscando un mensajero disponible cerca de ti'
+                                    : 'Estamos buscando el conductor más cercano'}
+                            </p>
+
+                            {/* Order summary for mandadito */}
+                            {request.service_type === 'mandadito' && (
+                                <div className="bg-orange-50 rounded-xl p-4 text-left mb-4">
+                                    <p className="text-sm text-orange-700 font-medium">📦 Tu pedido:</p>
+                                    <p className="text-sm text-gray-600 mt-1">{request.notes || 'Mandadito'}</p>
+                                    <p className="text-xs text-gray-500 mt-2">
+                                        💰 Precio estimado: ${request.estimated_price} MXN
+                                    </p>
+                                </div>
+                            )}
+
+                            {/* Cancel button */}
+                            {/* Actions: Retry or Cancel */}
+                            {timeLeft <= 0 ? (
+                                <div className="w-full space-y-3 mt-4">
+                                    <button
+                                        onClick={handleRetry}
+                                        className="w-full bg-orange-500 text-white font-bold py-3 rounded-xl hover:bg-orange-600 transition-colors shadow-lg shadow-orange-500/30 animate-pulse"
+                                    >
+                                        Solicitar Nuevamente
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            supabase.from('service_requests')
+                                                .update({ status: 'cancelled', cancellation_reason: 'Cliente canceló tras expirar' })
+                                                .eq('id', requestId)
+                                                .then(() => router.push('/cliente'));
+                                        }}
+                                        className="text-gray-400 text-sm hover:text-gray-600"
+                                    >
+                                        Cancelar y salir
+                                    </button>
+                                </div>
+                            ) : (
+                                <button
+                                    onClick={() => {
+                                        supabase.from('service_requests')
+                                            .update({ status: 'cancelled', cancellation_reason: 'Cliente canceló mientras esperaba' })
+                                            .eq('id', requestId)
+                                            .then(() => {
+                                                toast.info('Solicitud cancelada');
+                                                router.push('/cliente');
+                                            });
+                                    }}
+                                    className="text-red-500 text-sm font-medium hover:text-red-600"
+                                >
+                                    Cancelar solicitud
+                                </button>
+                            )}
                         </div>
                     </div>
                 )}
@@ -294,12 +661,35 @@ export default function ClienteTrackingPage() {
                     driverPlate={driver.car_plate}
                     driverCar={driver.car_model}
                     price={request.estimated_price}
-                    onCancel={handleCancel}
+                    boardingPin={request.boarding_pin || undefined}
+                    onCancel={handleCancelClick}
                     onCall={() => window.open(`tel:${driver.phone}`)}
                     onMessage={() => console.log("Open chat")} // Placeholder
                     onShare={() => console.log("Share trip")} // Placeholder
                 />
             )}
+
+            {/* Offer Modal */}
+            {activeOffer && (
+                <OfferModal
+                    offer={activeOffer}
+                    onClose={() => {/* Can't close without action? Or allow minimize? Strict mode: No close */ }}
+                    onAccept={handleAcceptOffer}
+                    onReject={handleRejectOffer}
+                    onCounter={handleCounterOffer}
+                />
+            )}
+
+
+            {/* Cancellation Modal */}
+            <CancellationModal
+                open={showCancelModal}
+                onClose={() => setShowCancelModal(false)}
+                onConfirm={handleConfirmCancel}
+                canCancel={restrictions.canCancel}
+                restrictionReason={restrictions.reason}
+                restrictionMessage={restrictions.message}
+            />
 
             {/* Rating Modal */}
             {showRatingModal && driver && (

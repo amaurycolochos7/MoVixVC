@@ -10,7 +10,7 @@ import { useServiceDriverLocation } from "@/hooks/useServiceDriverLocation";
 import { Button } from "@/components/ui/button";
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || "";
-const MAP_STYLE = "mapbox://styles/mapbox/streets-v12";
+const MAP_STYLE = "mapbox://styles/mapbox/outdoors-v12";
 
 // Default center (CDMX) to prevent Null Island (0,0)
 const DEFAULT_CENTER = { lat: 19.4326, lng: -99.1332 };
@@ -41,15 +41,17 @@ interface ClientTrackingMapProps {
     serviceId: string;
     pickupLocation: Coordinates;
     dropoffLocation?: Coordinates;
-    serviceStatus: string; // From service_requests.status
+    trackingStep: string; // Changed from serviceStatus to trackingStep
     className?: string;
 }
 
 /**
- * Map phase from service status
+ * Map phase from tracking_step (matching driver's logic)
  */
-function getPhaseFromStatus(status: string): "pickup" | "trip" {
-    return status === "passenger_onboard" || status === "in_trip" ? "trip" : "pickup";
+function getPhaseFromTrackingStep(trackingStep: string): "pickup" | "trip" {
+    // Same logic as driver: picked_up and in_transit mean trip phase
+    const tripPhaseSteps = ["picked_up", "in_transit"];
+    return tripPhaseSteps.includes(trackingStep) ? "trip" : "pickup";
 }
 
 /**
@@ -59,13 +61,25 @@ export function ClientTrackingMap({
     serviceId,
     pickupLocation,
     dropoffLocation,
-    serviceStatus,
+    trackingStep,
     className = "w-full h-96 rounded-xl overflow-hidden",
 }: ClientTrackingMapProps) {
     const mapRef = useRef<any>(null);
 
-    // Determine phase based on service status
-    const phase = getPhaseFromStatus(serviceStatus);
+    // Determine phase based on tracking step (matches driver's logic)
+    const phase = useMemo(() => {
+        const newPhase = getPhaseFromTrackingStep(trackingStep);
+
+        if (process.env.NODE_ENV === "development") {
+            console.log(`📍 [ClientTrackingMap] Phase calculation:`, {
+                trackingStep,
+                phase: newPhase,
+                hasDropoff: !!dropoffLocation
+            });
+        }
+
+        return newPhase;
+    }, [trackingStep, dropoffLocation]);
 
     // Subscribe to driver's location for this service
     const driverTracking = useServiceDriverLocation({
@@ -90,6 +104,14 @@ export function ClientTrackingMap({
         destination: dropoffLocation,
         phase,
     });
+
+    // Force recalculation when phase changes to trip
+    useEffect(() => {
+        if (phase === "trip" && dropoffLocation) {
+            console.log("🔄 [Client] Phase changed to TRIP - forcing route recalculation to dropoff");
+            smartRoute.forceRecalculate();
+        }
+    }, [phase, dropoffLocation]);
 
     // Camera follow mode
     const followCamera = useFollowCamera({

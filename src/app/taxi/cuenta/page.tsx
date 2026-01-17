@@ -17,8 +17,8 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/contexts/auth-context";
 
-// Flat commission per trip (taxi = $3 MXN)
-const COMMISSION_PER_TRIP = 3;
+// Flat commission per trip (taxi = $5 MXN)
+const COMMISSION_PER_TRIP = 5;
 
 interface CompletedTrip {
     id: string;
@@ -170,7 +170,7 @@ export default function TaxiCuentaPage() {
                                 <CheckCircle className="h-5 w-5 text-green-600" />
                             )}
                             <div>
-                                <p className="text-sm font-medium text-slate-700">Comisión ($3/viaje)</p>
+                                <p className="text-sm font-medium text-slate-700">Comisión ($5/viaje)</p>
                                 <p className="text-xs text-slate-500">Corte: {getEndOfWeek()}</p>
                             </div>
                         </div>
