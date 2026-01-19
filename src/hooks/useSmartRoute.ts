@@ -176,7 +176,8 @@ export function useSmartRoute(options: UseSmartRouteOptions) {
             }
 
             const query = `${start.lng},${start.lat};${end.lng},${end.lat}`;
-            const url = `https://api.mapbox.com/directions/v5/mapbox/driving/${query}?alternatives=false&geometries=geojson&overview=full&steps=true&access_token=${MAPBOX_TOKEN}`;
+            // Use driving-traffic for better accuracy and real-world conditions
+            const url = `https://api.mapbox.com/directions/v5/mapbox/driving-traffic/${query}?alternatives=false&geometries=geojson&overview=full&steps=true&access_token=${MAPBOX_TOKEN}`;
 
             const res = await fetch(url);
             const data = await res.json();

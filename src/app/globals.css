@@ -60,11 +60,13 @@
 }
 
 body {
-  background-color: var(--surface-alt);
+  background-color: #ffffff;
   color: var(--text-primary);
   font-family: var(--font-inter);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  margin: 0;
+  padding: 0;
 }
 
 /* Utilities */

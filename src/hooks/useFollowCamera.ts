@@ -145,18 +145,21 @@ export function useMapInteractionDetector(
         const map = mapRef.current?.getMap();
         if (!map) return;
 
-        const handleDragStart = () => onUserInteraction();
-        const handleWheel = () => onUserInteraction();
-        const handlePitchStart = () => onUserInteraction();
+        const handleInteraction = () => onUserInteraction();
 
-        map.on('dragstart', handleDragStart);
-        map.on('wheel', handleWheel);
-        map.on('pitchstart', handlePitchStart);
+        // Listen for all user interactions
+        map.on('dragstart', handleInteraction);
+        map.on('wheel', handleInteraction);
+        map.on('pitchstart', handleInteraction);
+        map.on('touchstart', handleInteraction); // Fix for mobile zoom/pan
+        map.on('mousedown', handleInteraction); // Fix for desktop drag click
 
         return () => {
-            map.off('dragstart', handleDragStart);
-            map.off('wheel', handleWheel);
-            map.off('pitchstart', handlePitchStart);
+            map.off('dragstart', handleInteraction);
+            map.off('wheel', handleInteraction);
+            map.off('pitchstart', handleInteraction);
+            map.off('touchstart', handleInteraction);
+            map.off('mousedown', handleInteraction);
         };
     }, [mapRef, onUserInteraction]);
 }

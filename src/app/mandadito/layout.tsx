@@ -9,10 +9,8 @@ export default function MandaditoLayout({
 }>) {
     return (
         <>
-            <main className="min-h-screen pb-24 pt-4 px-4 bg-surface-alt">
-                <div className="mx-auto max-w-md">
-                    {children}
-                </div>
+            <main className="min-h-screen pb-20">
+                {children}
             </main>
             <MandaditoBottomNav />
         </>

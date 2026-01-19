@@ -1,7 +1,8 @@
 "use client";
 import React from 'react';
 import dynamic from 'next/dynamic';
-import { Loader2, X, ShoppingCart, MapPin, AlignLeft } from 'lucide-react';
+import { Loader2, X, ShoppingCart, MapPin, AlignLeft, CheckCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 const Map = dynamic(() => import("react-map-gl").then((mod) => mod.Map), {
     ssr: false,
@@ -18,9 +19,11 @@ interface StopDetailModalProps {
     stop: any;
     stopIndex: number;
     onClose: () => void;
+    onAccept?: (request: any) => void;  // Optional callback to accept service
+    request?: any;  // Full request object for acceptance
 }
 
-export function StopDetailModal({ stop, stopIndex, onClose }: StopDetailModalProps) {
+export function StopDetailModal({ stop, stopIndex, onClose, onAccept, request }: StopDetailModalProps) {
     if (!stop) return null;
 
     // Use specific stop coordinates or fallback (fallback shouldn't happen properly)
@@ -147,6 +150,22 @@ export function StopDetailModal({ stop, stopIndex, onClose }: StopDetailModalPro
                         )}
                     </div>
                 </div>
+
+                {/* Accept Button - Only show if onAccept is provided */}
+                {onAccept && request && (
+                    <div className="p-4 border-t border-slate-800 bg-slate-900">
+                        <Button
+                            className="w-full h-14 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white font-bold text-lg rounded-xl shadow-lg"
+                            onClick={() => {
+                                onAccept(request);
+                                onClose();
+                            }}
+                        >
+                            <CheckCircle className="h-5 w-5 mr-2" />
+                            Aceptar Servicio
+                        </Button>
+                    </div>
+                )}
             </div>
         </div>
     );

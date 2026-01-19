@@ -93,25 +93,33 @@ export function TrackingMap({
         return () => clearTimeout(timer);
     }, [fitBounds]);
 
-    // Route layer style
-    const routeLayer = {
-        id: "route",
+    // Route layer style (Inner Bright Blue)
+    const routeInnerLayer = {
+        id: "route-inner",
         type: "line" as const,
+        layout: {
+            "line-join": "round" as const,
+            "line-cap": "round" as const
+        },
         paint: {
-            "line-color": "#3b82f6",
+            "line-color": "#3b82f6", // Bright blue
             "line-width": 5,
-            "line-opacity": 0.8,
+            "line-opacity": 1,
         },
     };
 
-    // Route background (shadow effect)
-    const routeBackgroundLayer = {
-        id: "route-bg",
+    // Route casing style (Dark Blue Border)
+    const routeCasingLayer = {
+        id: "route-casing",
         type: "line" as const,
+        layout: {
+            "line-join": "round" as const,
+            "line-cap": "round" as const
+        },
         paint: {
-            "line-color": "#1e3a5f",
+            "line-color": "#1e40af", // Dark blue border
             "line-width": 8,
-            "line-opacity": 0.4,
+            "line-opacity": 0.8,
         },
     };
 
@@ -153,8 +161,8 @@ export function TrackingMap({
                 {/* Route */}
                 {route && (
                     <Source id="route-source" type="geojson" data={routeGeoJSON}>
-                        <Layer {...routeBackgroundLayer} />
-                        <Layer {...routeLayer} />
+                        <Layer {...routeCasingLayer} />
+                        <Layer {...routeInnerLayer} />
                     </Source>
                 )}
 

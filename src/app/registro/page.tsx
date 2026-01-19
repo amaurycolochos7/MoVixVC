@@ -17,11 +17,16 @@ import {
 } from "@/components/ui/select";
 import { Loader2, Mail, Lock, User, Phone, Car, Package, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
+import { OTPVerification } from "@/components/auth/otp-verification";
+
+// Registration steps
+type RegistrationStep = "form" | "otp" | "complete";
 
 export default function RegistroPage() {
     const router = useRouter();
     const supabase = createClient();
 
+    const [step, setStep] = useState<RegistrationStep>("form");
     const [formData, setFormData] = useState({
         email: "",
         password: "",
@@ -43,7 +48,35 @@ export default function RegistroPage() {
         setFormData(prev => ({ ...prev, [field]: value }));
     };
 
-    const handleRegister = async (e: React.FormEvent) => {
+    // Send OTP to email
+    const sendOTP = async () => {
+        const response = await fetch("/api/auth/send-otp", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                email: formData.email,
+                name: formData.fullName,
+                type: "registration"
+            }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error || "Error al enviar código");
+        }
+
+        // In development, show the code for testing
+        if (data.devCode) {
+            console.log("[DEV] OTP Code:", data.devCode);
+            toast.info(`[DEV] Código: ${data.devCode}`, { duration: 10000 });
+        }
+
+        return data;
+    };
+
+    // Validate form and send OTP
+    const handleSubmitForm = async (e: React.FormEvent) => {
         e.preventDefault();
 
         if (formData.password !== formData.confirmPassword) {
@@ -62,14 +95,12 @@ export default function RegistroPage() {
                 toast.error("El teléfono es obligatorio para conductores");
                 return;
             }
-            // Limpiar el teléfono de espacios y guiones para validar
             const cleanPhone = formData.phone.replace(/\D/g, '');
             if (cleanPhone.length !== 10) {
                 toast.error("El teléfono debe tener exactamente 10 dígitos");
                 return;
             }
 
-            // Different validation for taxi vs mandadito
             if (formData.role === "taxi") {
                 if (!formData.vehicleBrand || !formData.vehicleModel ||
                     !formData.vehicleColor || !formData.vehiclePlate || !formData.taxiNumber) {
@@ -77,7 +108,6 @@ export default function RegistroPage() {
                     return;
                 }
             } else if (formData.role === "mandadito") {
-                // For mandadito: brand, model, color required. Plate and number optional.
                 if (!formData.vehicleBrand || !formData.vehicleModel || !formData.vehicleColor) {
                     toast.error("Marca, modelo y color de la moto son obligatorios");
                     return;
@@ -88,113 +118,78 @@ export default function RegistroPage() {
         setLoading(true);
 
         try {
-            // Create auth user with metadata - trigger will create profile
-            const { data: authData, error: authError } = await supabase.auth.signUp({
-                email: formData.email,
-                password: formData.password,
-                options: {
-                    data: {
-                        full_name: formData.fullName,
-                        phone: formData.phone || null,
-                        role: formData.role,
-                    }
-                }
-            });
+            // Send OTP to email
+            await sendOTP();
+            toast.success("Código de verificación enviado a tu email");
+            setStep("otp");
+        } catch (err: any) {
+            toast.error(err.message || "Error al enviar código de verificación");
+        } finally {
+            setLoading(false);
+        }
+    };
 
-            if (authError) throw authError;
+    // Complete registration after OTP verified
+    const completeRegistration = async () => {
+        setLoading(true);
 
-            if (!authData.user) {
-                throw new Error("No se pudo crear el usuario");
-            }
-
-            // If driver, insert vehicle data
-            if (formData.role !== "cliente") {
-                // ESTRATEGIA DE RECUPERACIÓN ROBUSTA
-                // 1. Verificar si el perfil existe (trigger debió crearlo)
-                const { data: profile } = await supabase
-                    .from("users")
-                    .select("id")
-                    .eq("id", authData.user.id)
-                    .maybeSingle();
-
-                // 2. Si no existe, forzar creación manual (Bypass de trigger fallido)
-                if (!profile) {
-                    console.log("Perfil no encontrado automáticamente, forzando creación manual...");
-
-                    const { error: createError } = await supabase.from("users").insert({
-                        id: authData.user.id,
-                        email: formData.email,
-                        full_name: formData.fullName,
-                        role: formData.role,
-                        phone: formData.phone, // Intentar con teléfono
-                    });
-
-                    if (createError) {
-                        console.error("Error al crear perfil manual:", createError);
-
-                        // Si falla por teléfono duplicado (Unique Constraint), reintentar SIN teléfono
-                        if (createError.code === '23505') {
-                            console.warn("Conflicto de teléfono detectado. Creando usuario sin teléfono.");
-                            const { error: retryError } = await supabase.from("users").insert({
-                                id: authData.user.id,
-                                email: formData.email,
-                                full_name: formData.fullName,
-                                role: formData.role,
-                                phone: null, // Phone NULL para permitir acceso
-                            });
-
-                            if (retryError) {
-                                throw new Error("Error crítico al crear usuario: " + retryError.message);
-                            }
-                            toast.warning("Tu número de teléfono ya estaba registrado. Se ha omitido temporalmente.");
-                        } else {
-                            // Otro error
-                            throw new Error("No se pudo iniciar el perfil de usuario: " + createError.message);
-                        }
-                    }
-                }
-
-                // 3. Insertar vehículo (ahora seguro porque el usuario existe)
-                const { error: vehicleError } = await supabase
-                    .from("driver_vehicles")
-                    .insert({
-                        user_id: authData.user.id,
+        try {
+            // Use admin API to create user with confirmed email
+            const response = await fetch("/api/auth/register", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    email: formData.email,
+                    password: formData.password,
+                    fullName: formData.fullName,
+                    phone: formData.phone || null,
+                    role: formData.role,
+                    vehicleData: formData.role !== "cliente" ? {
                         brand: formData.vehicleBrand,
                         model: formData.vehicleModel,
                         color: formData.vehicleColor,
-                        plate_number: formData.vehiclePlate ? formData.vehiclePlate.toUpperCase() : null,
-                        taxi_number: formData.taxiNumber || null,
-                    });
+                        plate: formData.vehiclePlate ? formData.vehiclePlate.toUpperCase() : null,
+                        taxiNumber: formData.taxiNumber || null,
+                    } : null
+                }),
+            });
 
-                if (vehicleError) {
-                    // Manejar error de placa duplicada
-                    if (vehicleError.code === '23505') {
-                        throw new Error("Este vehículo (Placas o Número de Taxi) ya está registrado en el sistema.");
-                    }
-                    throw vehicleError;
-                }
+            const data = await response.json();
+
+            if (!data.success) {
+                throw new Error(data.error || "Error al crear cuenta");
             }
 
-            // Different messages based on role
-            if (formData.role === "cliente") {
-                toast.success("Cuenta creada. Revisa tu email para verificar.");
-            } else {
+            // Show appropriate message based on role
+            if (data.requiresApproval) {
                 toast.success("Cuenta creada. Tu solicitud será revisada por un administrador.");
+            } else {
+                toast.success("¡Cuenta creada exitosamente!");
             }
 
             router.push("/login");
 
         } catch (err: any) {
             console.error("Registration error:", err);
-            if (err.message.includes("already registered")) {
-                toast.error("Este email ya está registrado");
-            } else {
-                toast.error(err.message || "Error al crear cuenta");
-            }
+            toast.error(err.message || "Error al crear cuenta");
         } finally {
             setLoading(false);
         }
     };
+
+    // Render OTP verification step
+    if (step === "otp") {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-primary/10 to-surface p-6">
+                <OTPVerification
+                    email={formData.email}
+                    onVerified={completeRegistration}
+                    onResend={sendOTP}
+                    onBack={() => setStep("form")}
+                />
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-primary/10 to-surface p-6">
@@ -204,7 +199,7 @@ export default function RegistroPage() {
                     <p className="text-sm text-muted-foreground">Únete a MoVix</p>
                 </CardHeader>
                 <CardContent>
-                    <form onSubmit={handleRegister} className="space-y-4">
+                    <form onSubmit={handleSubmitForm} className="space-y-4">
                         <div className="space-y-2">
                             <Label htmlFor="fullName">Nombre completo</Label>
                             <div className="relative">
@@ -491,10 +486,10 @@ export default function RegistroPage() {
                             {loading ? (
                                 <>
                                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                    Creando cuenta...
+                                    Enviando código...
                                 </>
                             ) : (
-                                "Crear Cuenta"
+                                "Continuar"
                             )}
                         </Button>
                     </form>

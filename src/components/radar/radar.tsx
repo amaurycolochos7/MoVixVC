@@ -95,7 +95,7 @@ export function Radar({ serviceType, isAvailable }: RadarProps) {
                         )
                     )
                 `)
-                .eq("status", "pending")
+                .in("status", ["pending", "negotiating"])
                 .eq("municipio", "Venustiano Carranza") // Local Filter MVP
                 .gt("request_expires_at", new Date().toISOString()) // Filter expired
                 .order("created_at", { ascending: false });
@@ -439,7 +439,19 @@ export function Radar({ serviceType, isAvailable }: RadarProps) {
                     request={selectedRequest}
                     driverLocation={driverPosition}
                     onClose={() => setSelectedRequest(null)}
-                    onAccept={(req, price) => handleSendOffer(req, price || 35)}
+                    onAccept={(req, price) => {
+                        // Determine if it's a direct accept or an offer
+                        // For Mandadito/Taxi: if price matches the listed/estimated price, treat as direct accept
+                        const listedPrice = req.service_type === 'taxi' ? 35 : (req.estimated_price || 22);
+
+                        // If price matches listed price (or no price provided, implying listed), DIRECT ACCEPT
+                        if (!price || price === listedPrice) {
+                            handleDirectAccept(req);
+                        } else {
+                            // Otherwise it's a counter-offer
+                            handleSendOffer(req, price);
+                        }
+                    }}
                 />
             )}
         </div>

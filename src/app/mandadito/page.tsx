@@ -15,11 +15,14 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { CommissionBlockedScreen } from "@/components/driver/commission-blocked-screen";
 
 export default function MandaditoHomePage() {
     const [isAvailable, setIsAvailable] = useState(false);
     const [driverName, setDriverName] = useState("");
     const [kycStatus, setKycStatus] = useState<string | null>(null);
+    const [commissionBlocked, setCommissionBlocked] = useState(false);
+    const [amountOwed, setAmountOwed] = useState(0);
     const [loading, setLoading] = useState(true);
     const [todayStats, setTodayStats] = useState({
         trips: 0,
@@ -38,14 +41,39 @@ export default function MandaditoHomePage() {
             if (user) {
                 const { data } = await supabase
                     .from("users")
-                    .select("full_name, kyc_status, is_available")
+                    .select("full_name, kyc_status, is_available, commission_status")
                     .eq("id", user.id)
                     .single();
 
                 if (data) {
-                    setDriverName(data.full_name.split(" ")[0]);
+                    setDriverName(data.full_name?.split(" ")[0] || "Conductor");
                     setKycStatus(data.kyc_status);
                     setIsAvailable(data.is_available ?? false);
+
+                    // Check if commission blocked
+                    if (data.commission_status === 'blocked') {
+                        setCommissionBlocked(true);
+
+                        // Calculate owed amount from unpaid periods
+                        const { data: overdueServices } = await supabase
+                            .from("service_requests")
+                            .select("id")
+                            .eq("assigned_driver_id", user.id)
+                            .eq("service_type", "mandadito")
+                            .eq("status", "completed");
+
+                        const { data: paidPeriods } = await supabase
+                            .from("driver_commission_periods")
+                            .select("completed_services")
+                            .eq("driver_id", user.id)
+                            .eq("service_type", "mandadito")
+                            .eq("status", "paid");
+
+                        const totalServices = overdueServices?.length || 0;
+                        const paidServices = paidPeriods?.reduce((sum, p) => sum + (p.completed_services || 0), 0) || 0;
+                        const unpaidServices = totalServices - paidServices;
+                        setAmountOwed(unpaidServices * 3); // $3 per mandadito
+                    }
                 }
 
                 // Fetch today's stats
@@ -94,9 +122,13 @@ export default function MandaditoHomePage() {
 
     // AUTO-REDIRECT: If driver has active service, redirect to service page
     useEffect(() => {
+        let userId: string | null = null;
+        let pollInterval: NodeJS.Timeout | null = null;
+
         const checkActiveService = async () => {
             const user = (await supabase.auth.getUser()).data.user;
             if (!user) return;
+            userId = user.id; // Cache user ID for realtime callbacks
 
             // Check if driver has an active assigned service
             const { data: activeService } = await supabase
@@ -117,7 +149,29 @@ export default function MandaditoHomePage() {
 
         checkActiveService();
 
-        // Also subscribe to realtime changes for assignments
+        // ⚡ FAST POLLING: Check every 2 seconds for new assignments (much faster than waiting for realtime)
+        pollInterval = setInterval(async () => {
+            if (!userId) {
+                const user = (await supabase.auth.getUser()).data.user;
+                userId = user?.id || null;
+            }
+            if (!userId) return;
+
+            const { data: activeService } = await supabase
+                .from("service_requests")
+                .select("id, status")
+                .eq("assigned_driver_id", userId)
+                .eq("service_type", "mandadito")
+                .in("status", ["assigned", "in_progress"])
+                .maybeSingle();
+
+            if (activeService) {
+                console.log("⚡ POLLING: Found active service, redirecting:", activeService.id);
+                router.push(`/mandadito/servicio/${activeService.id}`);
+            }
+        }, 2000); // Check every 2 seconds
+
+        // Also subscribe to realtime changes for assignments (backup)
         const channel = supabase
             .channel('mandadito-assignment')
             .on('postgres_changes', {
@@ -125,20 +179,20 @@ export default function MandaditoHomePage() {
                 schema: 'public',
                 table: 'service_requests',
                 filter: `service_type=eq.mandadito`
-            }, async (payload) => {
+            }, (payload) => {
                 const newData = payload.new as any;
-                const user = (await supabase.auth.getUser()).data.user;
 
+                // Use cached userId instead of async call for faster response
                 console.log("🔔 Assignment check:", {
                     requestId: newData.id,
                     assigned_to: newData.assigned_driver_id,
-                    my_id: user?.id,
+                    my_id: userId,
                     status: newData.status,
-                    match: newData.assigned_driver_id === user?.id && newData.status === 'assigned'
+                    match: newData.assigned_driver_id === userId && newData.status === 'assigned'
                 });
 
                 // If this request was just assigned to me
-                if (newData.assigned_driver_id === user?.id && newData.status === 'assigned') {
+                if (userId && newData.assigned_driver_id === userId && newData.status === 'assigned') {
                     console.log("🎯 Client accepted my offer! Redirecting to service...");
                     router.push(`/mandadito/servicio/${newData.id}`);
                 }
@@ -146,6 +200,7 @@ export default function MandaditoHomePage() {
             .subscribe();
 
         return () => {
+            if (pollInterval) clearInterval(pollInterval);
             supabase.removeChannel(channel);
         };
     }, []);
@@ -157,6 +212,11 @@ export default function MandaditoHomePage() {
                 <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
             </div>
         );
+    }
+
+    // Commission Blocked Screen
+    if (commissionBlocked) {
+        return <CommissionBlockedScreen amountOwed={amountOwed} />;
     }
 
     // KYC Pending / Not Approved Screen
@@ -239,117 +299,88 @@ export default function MandaditoHomePage() {
     }
 
     return (
-        <div className="min-h-[calc(100vh-6rem)] bg-gray-50 flex flex-col">
-            {/* Compact Header */}
-            <div className="bg-gradient-to-r from-orange-500 to-orange-600 text-white px-4 pt-5 pb-8">
-                <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
-                            <Bike className="h-5 w-5 text-white" />
-                        </div>
-                        <div>
-                            <p className="text-orange-100 text-xs">¡Hola!</p>
-                            <h1 className="text-lg font-bold">{driverName || "mandadito"}</h1>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Availability Toggle - Compact */}
-                <div className="bg-white/10 backdrop-blur rounded-xl p-3 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                        <div className={`w-2.5 h-2.5 rounded-full ${isAvailable ? 'bg-green-400 animate-pulse' : 'bg-slate-400'}`} />
-                        <div>
-                            <p className="font-semibold text-white text-sm">
-                                {isAvailable ? "En línea" : "Desconectado"}
-                            </p>
-                            <p className="text-xs text-orange-100">
-                                {isAvailable ? "Recibiendo solicitudes" : "Toca para conectarte"}
-                            </p>
-                        </div>
-                    </div>
-                    <Switch
-                        checked={isAvailable}
-                        onCheckedChange={handleAvailabilityChange}
-                        className="data-[state=checked]:bg-green-500"
-                    />
-                </div>
+        <div className="h-[calc(100vh-4rem)] bg-gray-100 flex flex-col overflow-hidden">
+            {/* Header - Compact */}
+            <div className="flex-shrink-0 bg-gradient-to-b from-orange-500 to-orange-600 text-white px-5 pt-6 pb-10">
+                <p className="text-orange-200 text-xs mb-0.5">Hola, {driverName || "Conductor"}</p>
+                <h1 className="text-xl font-bold">Panel de conductor</h1>
             </div>
 
-            {/* Compact Stats Cards */}
-            <div className="px-4 -mt-4 relative z-20 mb-3">
+            {/* Availability Card - Compact */}
+            <div className="flex-shrink-0 px-5 -mt-5 relative z-10 mb-3">
+                <Card className="p-4 bg-white shadow-lg border-0 rounded-xl">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isAvailable ? 'bg-green-100' : 'bg-gray-100'}`}>
+                                <div className={`w-3 h-3 rounded-full ${isAvailable ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
+                            </div>
+                            <div>
+                                <p className="font-bold text-gray-900">
+                                    {isAvailable ? "En línea" : "Desconectado"}
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                    {isAvailable ? "Recibiendo solicitudes" : "Toca para conectarte"}
+                                </p>
+                            </div>
+                        </div>
+                        <Switch
+                            checked={isAvailable}
+                            onCheckedChange={handleAvailabilityChange}
+                            className="data-[state=checked]:bg-orange-500"
+                        />
+                    </div>
+                </Card>
+            </div>
+
+            {/* Stats Cards - Compact */}
+            <div className="flex-shrink-0 px-5 mb-3">
                 <div className="grid grid-cols-3 gap-2">
-                    <Card className="p-2 text-center bg-white shadow-md border-0">
-                        <Package className="h-4 w-4 text-orange-500 mx-auto mb-0.5" />
-                        <p className="text-lg font-bold text-slate-900">{todayStats.trips}</p>
-                        <p className="text-[10px] text-slate-500">Entregas hoy</p>
+                    <Card className="p-3 bg-white shadow-sm border-0 rounded-xl">
+                        <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center mx-auto mb-2">
+                            <Package className="h-4 w-4 text-orange-500" />
+                        </div>
+                        <p className="text-xl font-bold text-gray-900 text-center">{todayStats.trips}</p>
+                        <p className="text-[10px] text-gray-500 text-center">Entregas</p>
                     </Card>
-                    <Card className="p-2 text-center bg-white shadow-md border-0">
-                        <DollarSign className="h-4 w-4 text-green-500 mx-auto mb-0.5" />
-                        <p className="text-lg font-bold text-slate-900">${todayStats.earnings}</p>
-                        <p className="text-[10px] text-slate-500">Ganado hoy</p>
+                    <Card className="p-3 bg-white shadow-sm border-0 rounded-xl">
+                        <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-2">
+                            <DollarSign className="h-4 w-4 text-green-500" />
+                        </div>
+                        <p className="text-xl font-bold text-gray-900 text-center">${todayStats.earnings}</p>
+                        <p className="text-[10px] text-gray-500 text-center">Ganado</p>
                     </Card>
-                    <Card className="p-2 text-center bg-white shadow-md border-0">
-                        <Clock className="h-4 w-4 text-blue-500 mx-auto mb-0.5" />
-                        <p className="text-lg font-bold text-slate-900">{todayStats.hours}h</p>
-                        <p className="text-[10px] text-slate-500">Tiempo activo</p>
+                    <Card className="p-3 bg-white shadow-sm border-0 rounded-xl">
+                        <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center mx-auto mb-2">
+                            <Clock className="h-4 w-4 text-blue-500" />
+                        </div>
+                        <p className="text-xl font-bold text-gray-900 text-center">{todayStats.hours}h</p>
+                        <p className="text-[10px] text-gray-500 text-center">Activo</p>
                     </Card>
                 </div>
             </div>
 
-            {/* Content Area */}
-            <div className="flex-1 px-4">
+            {/* Scrollable Request List - Takes remaining space */}
+            <div className="flex-1 overflow-y-auto px-5 pb-20 min-h-0">
                 {!isAvailable ? (
-                    /* Offline State - Motivation */
-                    <div className="text-center py-8">
-                        <div className="w-20 h-20 rounded-full bg-orange-100 flex items-center justify-center mx-auto mb-4">
-                            <Zap className="h-10 w-10 text-orange-500" />
+                    <Card className="p-6 bg-white shadow-sm border-0 rounded-2xl text-center">
+                        <div className="w-16 h-16 rounded-full bg-orange-100 flex items-center justify-center mx-auto mb-4">
+                            <Zap className="h-8 w-8 text-orange-500" />
                         </div>
-                        <h2 className="text-xl font-bold text-slate-900 mb-2">
-                            ¡Actívate y gana!
+                        <h2 className="text-xl font-bold text-gray-900 mb-2">
+                            Activa tu disponibilidad
                         </h2>
-                        <p className="text-slate-500 mb-6 max-w-xs mx-auto">
+                        <p className="text-gray-500 text-sm">
                             Hay mandados esperando cerca de ti. Conecta para empezar a recibir solicitudes.
                         </p>
-
-                        {/* Quick Tips */}
-                        <div className="space-y-3 text-left">
-                            <Card className="p-4 flex items-center gap-3 border-l-4 border-l-orange-500">
-                                <TrendingUp className="h-5 w-5 text-orange-500 flex-shrink-0" />
-                                <div>
-                                    <p className="text-sm font-medium text-slate-900">Horas pico</p>
-                                    <p className="text-xs text-slate-500">Mayor demanda de 12pm-3pm y 6pm-9pm</p>
-                                </div>
-                            </Card>
-                            <Card className="p-4 flex items-center gap-3 border-l-4 border-l-green-500">
-                                <Star className="h-5 w-5 text-green-500 flex-shrink-0" />
-                                <div>
-                                    <p className="text-sm font-medium text-slate-900">Mejor servicio</p>
-                                    <p className="text-xs text-slate-500">Buenos ratings = más solicitudes</p>
-                                </div>
-                            </Card>
-                            <Card className="p-4 flex items-center gap-3 border-l-4 border-l-blue-500">
-                                <MapPin className="h-5 w-5 text-blue-500 flex-shrink-0" />
-                                <div>
-                                    <p className="text-sm font-medium text-slate-900">Zonas activas</p>
-                                    <p className="text-xs text-slate-500">Centro y mercados tienen más pedidos</p>
-                                </div>
-                            </Card>
-                        </div>
-                    </div>
+                    </Card>
                 ) : (
-                    /* Online State - Radar */
-                    <div className="h-[calc(100vh-26rem)]">
-                        <div className="flex items-center justify-between mb-3">
-                            <h2 className="font-bold text-slate-900 flex items-center gap-2">
-                                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                                Mandados cerca de ti
-                            </h2>
-                            <span className="text-xs text-slate-500">Actualización automática</span>
+                    <>
+                        <div className="flex items-center gap-2 mb-3">
+                            <div className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse" />
+                            <p className="font-semibold text-gray-900 text-sm">Mandados cerca de ti</p>
                         </div>
-                        <div className="rounded-2xl overflow-hidden shadow-lg border border-slate-200 h-full">
-                            <Radar serviceType="mandadito" isAvailable={isAvailable} />
-                        </div>
-                    </div>
+                        <Radar serviceType="mandadito" isAvailable={isAvailable} />
+                    </>
                 )}
             </div>
         </div>

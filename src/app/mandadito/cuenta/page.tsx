@@ -1,22 +1,19 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Card, CardContent } from "@/components/ui/card";
 import {
     Wallet,
     TrendingUp,
     Clock,
-    CheckCircle,
     Loader2,
     Package,
     DollarSign,
-    AlertCircle
+    ChevronRight
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/contexts/auth-context";
 import { ServiceDetailModal } from "@/components/mandadito/service-detail-modal";
 
-// Flat commission per trip (mandadito = $3 MXN)
 const COMMISSION_PER_TRIP = 3;
 
 interface CompletedTrip {
@@ -36,6 +33,7 @@ interface EarningsSummary {
     weeklyGross: number;
     weeklyCommission: number;
     weeklyNet: number;
+    weeklyTrips: number;
 }
 
 export default function MandaditoCuentaPage() {
@@ -52,7 +50,8 @@ export default function MandaditoCuentaPage() {
         netEarnings: 0,
         weeklyGross: 0,
         weeklyCommission: 0,
-        weeklyNet: 0
+        weeklyNet: 0,
+        weeklyTrips: 0
     });
 
     useEffect(() => {
@@ -79,14 +78,14 @@ export default function MandaditoCuentaPage() {
                 setTrips(completedTrips.slice(0, 10));
 
                 const grossEarnings = completedTrips.reduce((sum, trip) => sum + (trip.final_price || 0), 0);
-                const commission = grossEarnings * 0.1071; // ~10.71% commission (3/28)
+                const commission = completedTrips.length * COMMISSION_PER_TRIP;
                 const netEarnings = grossEarnings - commission;
 
                 const weeklyTrips = completedTrips.filter(trip =>
                     new Date(trip.completed_at) >= startOfWeek
                 );
                 const weeklyGross = weeklyTrips.reduce((sum, trip) => sum + (trip.final_price || 0), 0);
-                const weeklyCommission = weeklyGross * 0.1071;
+                const weeklyCommission = weeklyTrips.length * COMMISSION_PER_TRIP;
                 const weeklyNet = weeklyGross - weeklyCommission;
 
                 setSummary({
@@ -96,7 +95,8 @@ export default function MandaditoCuentaPage() {
                     netEarnings,
                     weeklyGross,
                     weeklyCommission,
-                    weeklyNet
+                    weeklyNet,
+                    weeklyTrips: weeklyTrips.length
                 });
 
             } catch (err) {
@@ -109,141 +109,121 @@ export default function MandaditoCuentaPage() {
         fetchEarnings();
     }, [user]);
 
-    const getEndOfWeek = () => {
-        const now = new Date();
-        const endOfWeek = new Date(now);
-        endOfWeek.setDate(now.getDate() + (7 - now.getDay()));
-        return endOfWeek.toLocaleDateString('es-MX', { weekday: 'short', day: 'numeric', month: 'short' });
-    };
-
     if (loading) {
         return (
-            <div className="flex items-center justify-center h-[50vh]">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <div className="flex items-center justify-center h-screen bg-gray-50">
+                <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
             </div>
         );
     }
 
     return (
-        <div className="space-y-5">
-            <h1 className="text-xl font-bold">Mi Cuenta</h1>
+        <div className="min-h-screen bg-gray-50 pb-20">
+            {/* Header */}
+            <div className="bg-gradient-to-br from-orange-500 to-orange-600 px-5 pt-6 pb-24">
+                <h1 className="text-xl font-bold text-white mb-6">Mi Cuenta</h1>
 
-            {/* Weekly Balance Card */}
-            <Card className="bg-gradient-to-br from-purple-800 to-purple-900 text-white">
-                <CardContent className="p-6">
-                    <div className="flex items-center gap-3 mb-4">
-                        <div className="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center">
-                            <Wallet className="w-6 h-6" />
-                        </div>
-                        <div>
-                            <p className="text-sm text-white/70">Ganancias Netas (Semana)</p>
-                            <p className="text-3xl font-bold">${summary.weeklyNet.toFixed(2)}</p>
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/20">
-                        <div>
-                            <p className="text-xs text-white/50">Ganado</p>
-                            <p className="font-semibold">${summary.weeklyNet.toFixed(2)}</p>
-                        </div>
-                        <div>
-                            <p className="text-xs text-white/50">Mandados</p>
-                            <p className="font-semibold">{summary.totalTrips}</p>
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
-
-            {/* Commission Owed Card */}
-            <Card className={`${summary.weeklyCommission > 0 ? 'bg-amber-50 border-amber-200' : 'bg-green-50 border-green-200'}`}>
-                <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            {summary.weeklyCommission > 0 ? (
-                                <AlertCircle className="h-5 w-5 text-amber-600" />
-                            ) : (
-                                <CheckCircle className="h-5 w-5 text-green-600" />
-                            )}
-                            <div>
-                                <p className="text-sm font-medium text-slate-700">Comisión ($3/mandado)</p>
-                                <p className="text-xs text-slate-500">Corte: {getEndOfWeek()}</p>
-                            </div>
-                        </div>
-                        <div className="text-right">
-                            <p className={`text-xl font-bold ${summary.weeklyCommission > 0 ? 'text-amber-600' : 'text-green-600'}`}>
-                                ${summary.weeklyCommission.toFixed(2)}
-                            </p>
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
-
-            {/* Stats Row */}
-            <div className="grid grid-cols-3 gap-3">
-                <Card className="p-3 text-center">
-                    <Package className="h-5 w-5 mx-auto mb-1 text-purple-600" />
-                    <p className="text-lg font-bold">{summary.totalTrips}</p>
-                    <p className="text-xs text-text-secondary">Mandados</p>
-                </Card>
-                <Card className="p-3 text-center">
-                    <TrendingUp className="h-5 w-5 mx-auto mb-1 text-green-500" />
-                    <p className="text-lg font-bold">${summary.netEarnings.toFixed(0)}</p>
-                    <p className="text-xs text-text-secondary">Ganado</p>
-                </Card>
-                <Card className="p-3 text-center">
-                    <DollarSign className="h-5 w-5 mx-auto mb-1 text-amber-500" />
-                    <p className="text-lg font-bold">${summary.commission.toFixed(0)}</p>
-                    <p className="text-xs text-text-secondary">Comisión</p>
-                </Card>
+                {/* Main Balance */}
+                <div className="text-center">
+                    <p className="text-orange-100 text-sm mb-1">Ganancias esta semana</p>
+                    <p className="text-white text-5xl font-black">${summary.weeklyNet.toFixed(2)}</p>
+                    <p className="text-orange-200 text-sm mt-2">{summary.weeklyTrips} mandados completados</p>
+                </div>
             </div>
 
+            {/* Stats Cards - Floating */}
+            <div className="px-4 -mt-12">
+                <div className="bg-white rounded-2xl shadow-lg p-4">
+                    <div className="grid grid-cols-3 divide-x divide-gray-100">
+                        <div className="text-center px-2">
+                            <div className="w-10 h-10 bg-orange-50 rounded-full flex items-center justify-center mx-auto mb-2">
+                                <Package className="h-5 w-5 text-orange-500" />
+                            </div>
+                            <p className="text-xl font-bold text-gray-900">{summary.weeklyTrips}</p>
+                            <p className="text-xs text-gray-500">Total</p>
+                        </div>
+                        <div className="text-center px-2">
+                            <div className="w-10 h-10 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-2">
+                                <TrendingUp className="h-5 w-5 text-green-500" />
+                            </div>
+                            <p className="text-xl font-bold text-gray-900">${summary.weeklyGross.toFixed(0)}</p>
+                            <p className="text-xs text-gray-500">Cobrado</p>
+                        </div>
+                        <div className="text-center px-2">
+                            <div className="w-10 h-10 bg-amber-50 rounded-full flex items-center justify-center mx-auto mb-2">
+                                <DollarSign className="h-5 w-5 text-amber-500" />
+                            </div>
+                            <p className="text-xl font-bold text-gray-900">${summary.weeklyCommission.toFixed(0)}</p>
+                            <p className="text-xs text-gray-500">Comisión</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Commission Alert */}
+            {summary.weeklyCommission > 0 && (
+                <div className="px-4 mt-4">
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <Wallet className="h-5 w-5 text-amber-600" />
+                            <div>
+                                <p className="text-sm font-medium text-amber-800">Comisión pendiente</p>
+                                <p className="text-xs text-amber-600">${summary.weeklyCommission.toFixed(2)} este corte</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Recent Trips */}
-            <section>
-                <h3 className="font-semibold mb-3">Mandados Completados</h3>
+            <div className="px-4 mt-6">
+                <h3 className="font-bold text-gray-900 mb-3">Historial</h3>
+
                 {trips.length === 0 ? (
-                    <Card>
-                        <CardContent className="p-6 text-center">
-                            <Package className="h-10 w-10 mx-auto mb-2 text-gray-300" />
-                            <p className="text-sm text-text-muted">No hay mandados completados</p>
-                        </CardContent>
-                    </Card>
+                    <div className="bg-white rounded-2xl p-8 text-center shadow-sm">
+                        <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                            <Package className="h-7 w-7 text-gray-400" />
+                        </div>
+                        <p className="text-gray-500 text-sm">Sin mandados completados</p>
+                    </div>
                 ) : (
-                    <div className="space-y-3">
+                    <div className="bg-white rounded-2xl shadow-sm overflow-hidden divide-y divide-gray-50">
                         {trips.map((trip) => (
-                            <Card
+                            <button
                                 key={trip.id}
-                                className="overflow-hidden cursor-pointer hover:shadow-md transition-shadow"
+                                className="w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-50 transition-colors text-left"
                                 onClick={() => setSelectedServiceId(trip.id)}
                             >
-                                <div className="p-4 flex gap-3">
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-sm font-medium text-slate-900 mb-1 line-clamp-2">
-                                            {trip.destination_address || trip.origin_address}
-                                        </p>
-                                        <div className="flex items-center gap-1 text-xs text-slate-500">
-                                            <Clock className="h-3 w-3 flex-shrink-0" />
-                                            <span>
-                                                {new Date(trip.completed_at).toLocaleDateString('es-MX', {
-                                                    day: 'numeric',
-                                                    month: 'short',
-                                                    hour: '2-digit',
-                                                    minute: '2-digit'
-                                                })}
-                                            </span>
-                                        </div>
-                                    </div>
-                                    <div className="flex-shrink-0 text-right">
-                                        <p className="text-lg font-bold text-green-600">
-                                            ${(trip.final_price - COMMISSION_PER_TRIP).toFixed(2)}
-                                        </p>
-                                        <p className="text-xs text-slate-500">neto</p>
+                                <div className="w-10 h-10 bg-orange-50 rounded-full flex items-center justify-center flex-shrink-0">
+                                    <Package className="h-5 w-5 text-orange-500" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium text-gray-900 truncate">
+                                        {trip.destination_address || trip.origin_address}
+                                    </p>
+                                    <div className="flex items-center gap-1 text-xs text-gray-500">
+                                        <Clock className="h-3 w-3" />
+                                        <span>
+                                            {new Date(trip.completed_at).toLocaleDateString('es-MX', {
+                                                day: 'numeric',
+                                                month: 'short',
+                                                hour: '2-digit',
+                                                minute: '2-digit'
+                                            })}
+                                        </span>
                                     </div>
                                 </div>
-                            </Card>
+                                <div className="flex items-center gap-2 flex-shrink-0">
+                                    <span className="text-green-600 font-bold">
+                                        +${(trip.final_price - COMMISSION_PER_TRIP).toFixed(0)}
+                                    </span>
+                                    <ChevronRight className="h-4 w-4 text-gray-300" />
+                                </div>
+                            </button>
                         ))}
                     </div>
                 )}
-            </section>
+            </div>
 
             {/* Service Detail Modal */}
             {selectedServiceId && (

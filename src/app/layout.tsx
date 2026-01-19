@@ -39,7 +39,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es" className={cn("antialiased", inter.variable)}>
-      <body className="min-h-screen bg-surface-alt text-text-primary font-sans">
+      <body className="min-h-screen bg-white text-text-primary font-sans">
         <AuthProvider>
           {children}
         </AuthProvider>

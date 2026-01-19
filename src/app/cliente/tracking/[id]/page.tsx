@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { MapPin, Phone, MessageCircle, Share2, Star, Car, CheckCircle, Loader2, Navigation } from "lucide-react";
+import { MapPin, Phone, MessageCircle, Share2, Star, Car, CheckCircle, Loader2, Navigation, Bike, Package } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/contexts/auth-context";
 import { toast } from "sonner";
@@ -12,6 +12,7 @@ import { RideBottomSheet } from "@/components/tracking/ride-bottom-sheet";
 import { RideTopBar } from "@/components/tracking/ride-top-bar";
 import { OfferModal } from "@/components/tracking/offer-modal";
 import { CancellationModal } from "@/components/tracking/cancellation-modal";
+import { CancelledNotificationModal } from "@/components/tracking/cancelled-notification-modal";
 import { useServiceDriverLocation } from "@/hooks/useServiceDriverLocation";
 import { MandaditoClientTracking } from "@/components/tracking/mandadito-client-tracking";
 
@@ -500,6 +501,20 @@ export default function ClienteTrackingPage() {
     // If completed or cancelled, show different view or redirect
     if (request.status === "completed" || request.status === "cancelled") {
         if (request.status === "cancelled") {
+            // For mandadito, show notification modal with reason
+            if (request.service_type === 'mandadito') {
+                return (
+                    <div className="h-screen w-full bg-gray-100 flex items-center justify-center">
+                        <CancelledNotificationModal
+                            open={true}
+                            cancelledBy="driver"
+                            reason={request.cancellation_reason || "El servicio ha sido cancelado"}
+                            onClose={() => router.push("/cliente")}
+                        />
+                    </div>
+                );
+            }
+            // For taxi, keep original behavior
             router.push("/cliente");
             return null;
         }
@@ -507,8 +522,9 @@ export default function ClienteTrackingPage() {
 
     const restrictions = getCancellationRestrictions();
 
-    // Render Mandadito-specific tracking ONLY when driver is assigned (not pending)
-    if (request.service_type === 'mandadito' && request.status !== 'pending') {
+    // Render Mandadito-specific tracking ONLY when driver is assigned (not pending/negotiating)
+    // During pending and negotiating, we use the main UI which has the OfferModal
+    if (request.service_type === 'mandadito' && request.status !== 'pending' && request.status !== 'negotiating') {
         return (
             <MandaditoClientTracking
                 requestId={requestId}
@@ -540,79 +556,82 @@ export default function ClienteTrackingPage() {
                         pickupLocation={{ lat: request.origin_lat, lng: request.origin_lng }}
                         dropoffLocation={request.destination_lat ? { lat: request.destination_lat, lng: request.destination_lng } : undefined}
                         trackingStep={request.tracking_step}
+                        serviceType={request.service_type} // Pass type (mandadito/taxi)
                         className="w-full h-full"
                     // Future: Pass onMetricsChange={(m) => setRouteMetrics(m)}
                     />
                 ) : (
-                    /* Waiting Screen while pending */
-                    <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-b from-gray-100 to-gray-200 p-6">
-                        <div className="bg-white rounded-2xl shadow-lg p-8 max-w-sm w-full text-center">
-                            {/* Animated loader */}
-                            {/* Animated loader with Countdown */}
-                            <div className="relative w-24 h-24 mx-auto mb-6 flex items-center justify-center">
-                                {/* Background Circle */}
-                                <svg className="absolute inset-0 w-full h-full transform -rotate-90">
-                                    <circle
-                                        cx="48" cy="48" r={radius}
-                                        fill="transparent"
-                                        stroke="#e5e7eb"
-                                        strokeWidth="4"
-                                    />
-                                    {/* Progress Circle */}
-                                    <circle
-                                        cx="48" cy="48" r={radius}
-                                        fill="transparent"
-                                        stroke={percentage > 20 ? "#f97316" : "#ef4444"} // Orange to Red
-                                        strokeWidth="4"
-                                        strokeDasharray={circumference}
-                                        strokeDashoffset={strokeDashoffset}
-                                        strokeLinecap="round"
-                                        className="transition-all duration-1000 ease-linear"
-                                    />
-                                </svg>
-
-                                {/* Icon & Timer */}
-                                <div className="absolute inset-0 flex items-center justify-center flex-col">
-                                    <div className="animate-pulse">
-                                        {request.service_type === 'mandadito' ? (
-                                            <span className="text-2xl mb-1">🛵</span>
-                                        ) : (
-                                            <Car className="w-6 h-6 text-orange-500 mb-1" />
-                                        )}
+                    /* Waiting Screen while pending - DiDi Style */
+                    <div className="w-full h-full flex flex-col items-center justify-center bg-gray-100 p-6">
+                        <div className="bg-white rounded-3xl shadow-xl p-8 max-w-sm w-full">
+                            {/* Header with Icon */}
+                            <div className="flex flex-col items-center mb-8">
+                                <div className="relative w-20 h-20 mb-4">
+                                    {/* Animated ring */}
+                                    <div className="absolute inset-0 rounded-full border-4 border-orange-100" />
+                                    <svg className="absolute inset-0 w-full h-full transform -rotate-90">
+                                        <circle
+                                            cx="40" cy="40" r="36"
+                                            fill="transparent"
+                                            stroke="#f97316"
+                                            strokeWidth="4"
+                                            strokeDasharray={226}
+                                            strokeDashoffset={226 - (percentage / 100) * 226}
+                                            strokeLinecap="round"
+                                            className="transition-all duration-1000"
+                                        />
+                                    </svg>
+                                    {/* Center icon */}
+                                    <div className="absolute inset-0 flex items-center justify-center">
+                                        <div className="w-12 h-12 rounded-full bg-orange-500 flex items-center justify-center">
+                                            {request.service_type === 'mandadito' ? (
+                                                <Bike className="w-6 h-6 text-white" />
+                                            ) : (
+                                                <Car className="w-6 h-6 text-white" />
+                                            )}
+                                        </div>
                                     </div>
-                                    <span className={`text-sm font-bold ${percentage > 20 ? "text-gray-600" : "text-red-500"}`}>
-                                        {timeLeft}s
-                                    </span>
+                                </div>
+
+                                {/* Timer */}
+                                <div className={`text-2xl font-bold ${percentage > 20 ? 'text-gray-900' : 'text-red-500'}`}>
+                                    {timeLeft}s
                                 </div>
                             </div>
 
-                            <h2 className="text-xl font-bold text-gray-900 mb-2">
-                                {request.service_type === 'mandadito' ? 'Buscando repartidor...' : 'Buscando conductor...'}
+                            {/* Title */}
+                            <h2 className="text-xl font-bold text-gray-900 text-center mb-2">
+                                {request.service_type === 'mandadito' ? 'Buscando repartidor' : 'Buscando conductor'}
                             </h2>
-                            <p className="text-gray-500 text-sm mb-6">
+                            <p className="text-gray-500 text-sm text-center mb-6">
                                 {request.service_type === 'mandadito'
-                                    ? 'Estamos buscando un mensajero disponible cerca de ti'
+                                    ? 'Estamos conectando con un mensajero cercano'
                                     : 'Estamos buscando el conductor más cercano'}
                             </p>
 
                             {/* Order summary for mandadito */}
                             {request.service_type === 'mandadito' && (
-                                <div className="bg-orange-50 rounded-xl p-4 text-left mb-4">
-                                    <p className="text-sm text-orange-700 font-medium">📦 Tu pedido:</p>
-                                    <p className="text-sm text-gray-600 mt-1">{request.notes || 'Mandadito'}</p>
-                                    <p className="text-xs text-gray-500 mt-2">
-                                        💰 Precio estimado: ${request.estimated_price} MXN
-                                    </p>
+                                <div className="bg-white rounded-xl p-5 text-left border border-gray-200 shadow-sm mb-6">
+                                    <div className="flex items-center gap-3 mb-4">
+                                        <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center">
+                                            <Package className="h-5 w-5 text-orange-500" />
+                                        </div>
+                                        <span className="font-semibold text-gray-900 text-lg">Tu pedido</span>
+                                    </div>
+                                    <p className="text-sm text-gray-600 mb-4">{request.notes || 'Mandadito'}</p>
+                                    <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+                                        <span className="text-sm text-gray-500">Precio estimado</span>
+                                        <span className="text-lg font-bold text-orange-500">${request.estimated_price} MXN</span>
+                                    </div>
                                 </div>
                             )}
 
-                            {/* Cancel button */}
                             {/* Actions: Retry or Cancel */}
                             {timeLeft <= 0 ? (
-                                <div className="w-full space-y-3 mt-4">
+                                <div className="w-full space-y-4 mt-6">
                                     <button
                                         onClick={handleRetry}
-                                        className="w-full bg-orange-500 text-white font-bold py-3 rounded-xl hover:bg-orange-600 transition-colors shadow-lg shadow-orange-500/30 animate-pulse"
+                                        className="w-full bg-orange-500 text-white font-bold py-4 rounded-xl hover:bg-orange-600 transition-colors shadow-lg shadow-orange-500/30"
                                     >
                                         Solicitar Nuevamente
                                     </button>
@@ -623,7 +642,7 @@ export default function ClienteTrackingPage() {
                                                 .eq('id', requestId)
                                                 .then(() => router.push('/cliente'));
                                         }}
-                                        className="text-gray-400 text-sm hover:text-gray-600"
+                                        className="w-full text-gray-400 text-sm hover:text-gray-600 py-2"
                                     >
                                         Cancelar y salir
                                     </button>
@@ -639,7 +658,7 @@ export default function ClienteTrackingPage() {
                                                 router.push('/cliente');
                                             });
                                     }}
-                                    className="text-red-500 text-sm font-medium hover:text-red-600"
+                                    className="w-full text-red-500 text-sm font-medium hover:text-red-600 mt-6 py-2"
                                 >
                                     Cancelar solicitud
                                 </button>

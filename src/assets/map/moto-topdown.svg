@@ -1,0 +1,30 @@
+<svg width="60" height="120" viewBox="0 0 60 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Body Shadow -->
+  <ellipse cx="30" cy="60" rx="20" ry="40" fill="black" fill-opacity="0.2"/>
+  
+  <!-- Rear Tire -->
+  <rect x="25" y="90" width="10" height="20" rx="2" fill="#333"/>
+  
+  <!-- Main Body -->
+  <path d="M30 100C45 100 50 70 50 50C50 30 40 20 30 20C20 20 10 30 10 50C10 70 15 100 30 100Z" fill="#F97316" stroke="#C2410C" stroke-width="2"/>
+  
+  <!-- Seat -->
+  <path d="M22 60L24 85H36L38 60C38 60 36 55 30 55C24 55 22 60 22 60Z" fill="#333"/>
+  
+  <!-- Front Body/Shield -->
+  <path d="M20 35C20 35 25 30 30 30C35 30 40 35 40 35V25H20V35Z" fill="#333"/>
+  
+  <!-- Handlebars -->
+  <rect x="5" y="28" width="50" height="4" rx="2" fill="#666"/>
+  <circle cx="5" cy="30" r="3" fill="#333"/>
+  <circle cx="55" cy="30" r="3" fill="#333"/>
+
+  <!-- Instrument Panel -->
+  <circle cx="30" cy="35" r="5" fill="#222"/>
+  
+  <!-- Front Tire -->
+  <rect x="26" y="5" width="8" height="15" rx="2" fill="#333"/>
+  
+  <!-- Helmet/Driver suggestion (optional, kept simple for now) -->
+  <circle cx="30" cy="50" r="10" fill="#E5E7EB" stroke="#9CA3AF" stroke-width="2"/>
+</svg>

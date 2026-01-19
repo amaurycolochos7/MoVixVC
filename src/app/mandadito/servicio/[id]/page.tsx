@@ -8,14 +8,25 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
     ArrowLeft, MapPin, Package, CheckCircle, Circle,
-    Loader2, Navigation, ChevronDown, ChevronUp, DollarSign,
+    Loader2, Navigation, ChevronDown, ChevronUp, ChevronRight, DollarSign,
     ShoppingBag, Check, SkipForward, Phone, X, AlertTriangle,
-    ExternalLink, KeyRound
+    ExternalLink, KeyRound, MessageCircle,
+    Navigation as NavigationIcon
 } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { DriverNavigationMap } from "@/components/maps/driver-navigation-map";
+import {
+    Sheet,
+    SheetContent,
+    SheetHeader,
+    SheetTitle,
+    SheetDescription,
+    SheetFooter,
+} from "@/components/ui/sheet";
+import { DriverNavigationMap, DriverNavigationMapRef } from "@/components/maps/driver-navigation-map";
+import { SimpleLocationMap } from "@/components/maps/simple-location-map";
 import { useDriverLocation } from "@/hooks/useDriverLocation";
+import { useRef } from "react";
 
 interface StopItem {
     id: string;
@@ -35,6 +46,8 @@ interface Stop {
     status: string;
     stop_type: string;
     total_expense: number;
+    lat?: number;
+    lng?: number;
     items: StopItem[];
 }
 
@@ -78,9 +91,18 @@ export default function MandaditoServicePage() {
     const [verifyingPin, setVerifyingPin] = useState(false);
     const [showCancelModal, setShowCancelModal] = useState(false);
     const [cancelling, setCancelling] = useState(false);
+    const [cancelReason, setCancelReason] = useState("");
+
+    // Map modal state
+    const [selectedMapStop, setSelectedMapStop] = useState<Stop | null>(null);
+    const [showDeliveryMap, setShowDeliveryMap] = useState(false);
+    const [isNavigatingToStore, setIsNavigatingToStore] = useState(false);
 
     // GPS for driver
     const { currentPosition: driverLocation } = useDriverLocation({ serviceId: requestId });
+
+    // Map Ref
+    const mapRef = useRef<DriverNavigationMapRef>(null);
 
     // Fetch request and stops
     useEffect(() => {
@@ -335,16 +357,26 @@ export default function MandaditoServicePage() {
     const handleCancelService = async () => {
         setCancelling(true);
         try {
+            const user = (await supabase.auth.getUser()).data.user;
+
             const { error } = await supabase
                 .from("service_requests")
                 .update({
                     status: "cancelled",
-                    cancellation_reason: "Mandadero canceló el servicio",
+                    cancellation_reason: "Mandadito canceló el servicio",
                     updated_at: new Date().toISOString()
                 })
                 .eq("id", requestId);
 
             if (error) throw error;
+
+            // Keep driver available after cancelling
+            if (user) {
+                await supabase
+                    .from("users")
+                    .update({ is_available: true })
+                    .eq("id", user.id);
+            }
 
             toast.success("Servicio cancelado");
             setShowCancelModal(false);
@@ -414,39 +446,27 @@ export default function MandaditoServicePage() {
         // Use a dummy pickup for the map (not used in trip phase)
         const dummyPickup = driverLocation || deliveryDestination;
 
-        return (
-            <div className="h-screen flex flex-col bg-white">
-                {/* Header */}
-                <div className="bg-gradient-to-r from-blue-600 to-blue-500 px-5 py-4 shrink-0 z-10 shadow-sm">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3 flex-1 min-w-0">
-                            <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center flex-shrink-0">
-                                <Navigation className="h-6 w-6 text-white animate-pulse" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                                <h1 className="font-bold text-lg text-white">En camino al cliente</h1>
-                                <p className="text-blue-100 text-sm truncate">{request.delivery_address}</p>
-                            </div>
-                        </div>
-                        <Button
-                            size="sm"
-                            className="bg-white text-blue-600 hover:bg-blue-50 shadow-md flex-shrink-0"
-                            onClick={() => window.open(`tel:${request.client?.phone}`)}
-                        >
-                            <Phone className="h-4 w-4" />
-                        </Button>
-                    </div>
-                </div>
+        // Get client initials for avatar
+        const getClientInitials = (name: string) => {
+            if (!name) return "C";
+            const parts = name.split(" ");
+            return parts.length > 1
+                ? `${parts[0][0]}${parts[1][0]}`.toUpperCase()
+                : name.substring(0, 2).toUpperCase();
+        };
 
-                {/* Map - Takes remaining space */}
+        return (
+            <div className="h-screen flex flex-col bg-gray-100">
+                {/* Full Screen Map */}
                 <div className="flex-1 relative">
                     {/* GPS status overlay when waiting */}
                     {!driverLocation && (
-                        <div className="absolute top-4 left-4 right-4 z-20 bg-yellow-400 text-gray-900 px-4 py-3 rounded-xl text-sm font-medium flex items-center gap-2 shadow-lg">
+                        <div className="absolute top-20 left-4 right-4 z-30 bg-yellow-400 text-gray-900 px-4 py-3 rounded-xl text-sm font-medium flex items-center gap-2 shadow-lg">
                             <Loader2 className="h-4 w-4 animate-spin" />
                             Obteniendo tu ubicación GPS...
                         </div>
                     )}
+
                     <DriverNavigationMap
                         pickupLocation={dummyPickup}
                         dropoffLocation={deliveryDestination}
@@ -454,6 +474,47 @@ export default function MandaditoServicePage() {
                         className="w-full h-full"
                         trackingStep="picked_up"
                     />
+
+                    {/* Compact Status Bar - Minimal footprint */}
+                    <div className="absolute top-4 left-4 right-4 z-20">
+                        <div className="bg-white/95 backdrop-blur-sm rounded-full shadow-lg px-3 py-2 flex items-center justify-between">
+                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                                <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse flex-shrink-0" />
+                                <span className="text-sm font-medium text-gray-800 truncate">
+                                    {request.client?.full_name || 'Cliente'}
+                                </span>
+                                <span className="text-gray-400 text-xs flex-shrink-0">• Entregar</span>
+                            </div>
+
+                            {/* Contact Buttons - Compact */}
+                            <div className="flex gap-2">
+                                {/* WhatsApp Button */}
+                                <button
+                                    onClick={() => {
+                                        if (request.client?.phone) {
+                                            const phone = request.client.phone.replace(/\D/g, ''); // Remove non-digits
+                                            window.open(`https://wa.me/${phone}`, '_blank');
+                                        }
+                                    }}
+                                    className="w-10 h-10 rounded-full bg-[#25D366] hover:bg-[#20BA5A] active:bg-[#1DA851] flex items-center justify-center shadow-md transition-all flex-shrink-0"
+                                >
+                                    <MessageCircle className="h-5 w-5 text-white" />
+                                </button>
+
+                                {/* Call Button */}
+                                <button
+                                    onClick={() => {
+                                        if (request.client?.phone) {
+                                            window.location.href = `tel:${request.client.phone}`;
+                                        }
+                                    }}
+                                    className="w-10 h-10 rounded-full bg-blue-500 hover:bg-blue-600 active:bg-blue-700 flex items-center justify-center shadow-md transition-all flex-shrink-0"
+                                >
+                                    <Phone className="h-5 w-5 text-white" />
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Bottom Panel - Fixed above nav */}
@@ -570,6 +631,18 @@ export default function MandaditoServicePage() {
                         )}
                         <Button
                             size="sm"
+                            className="bg-[#25D366] hover:bg-[#20BA5A]"
+                            onClick={() => {
+                                if (request.client?.phone) {
+                                    const phone = request.client.phone.replace(/\D/g, '');
+                                    window.open(`https://wa.me/${phone}`, '_blank');
+                                }
+                            }}
+                        >
+                            <MessageCircle className="h-4 w-4" />
+                        </Button>
+                        <Button
+                            size="sm"
                             className="bg-green-600 hover:bg-green-700"
                             onClick={() => window.open(`tel:${request.client?.phone}`)}
                         >
@@ -656,44 +729,66 @@ export default function MandaditoServicePage() {
 
                             {/* Stop Content */}
                             {isExpanded && (
-                                <div className="p-4 pt-0 border-t border-gray-200 space-y-3">
-                                    {stop.instructions && (
-                                        <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-                                            <p className="text-xs text-blue-700 font-medium mb-1">Instrucciones:</p>
-                                            <p className="text-sm text-gray-900">{stop.instructions}</p>
-                                        </div>
-                                    )}
-
-                                    {stop.items.length > 0 && (
-                                        <div className="space-y-3">
-                                            <p className="text-xs text-gray-700 font-medium">Lista de compras:</p>
-                                            {stop.items.map((item) => (
-                                                <ItemChecker
-                                                    key={item.id}
-                                                    item={item}
-                                                    onMarkPurchased={(cost) => markItemPurchased(stop.id, item.id, cost)}
-                                                    isUpdating={updatingItem === item.id}
-                                                    disabled={isCompleted || isSkipped}
-                                                />
-                                            ))}
-                                        </div>
-                                    )}
-
-                                    {!isCompleted && !isSkipped && (
+                                <div className="p-4 pt-0 border-t border-gray-200 space-y-4">
+                                    {/* Navigation Buttons - Google Maps & Ver Mapa */}
+                                    {/* Navigation Buttons - Compact & Aligned */}
+                                    {stop.lat && stop.lng && (
                                         <div className="flex gap-2 pt-3">
                                             <Button
+                                                className="flex-1 h-9 bg-[#10B981] hover:bg-[#059669] text-white shadow-sm rounded-lg text-xs font-medium border-0"
+                                                onClick={() => setSelectedMapStop(stop)}
+                                            >
+                                                <MapPin className="h-3.5 w-3.5 mr-1.5" />
+                                                Ver Mapa
+                                            </Button>
+                                        </div>
+                                    )}
+
+                                    {/* LISTA DE COMPRAS */}
+                                    {stop.items.length > 0 && (
+                                        <div>
+                                            <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider mb-3">Lista de Compras</p>
+                                            <div className="space-y-3">
+                                                {stop.items.map((item) => (
+                                                    <div key={item.id} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg bg-white">
+                                                        <span className="font-medium text-gray-800">{item.item_name}</span>
+                                                        <div className="flex items-center gap-1">
+                                                            <span className="text-gray-400 text-sm">$</span>
+                                                            <input
+                                                                type="number"
+                                                                placeholder="0"
+                                                                defaultValue={item.actual_cost || ""}
+                                                                className="w-20 h-8 text-right font-medium border border-gray-200 rounded-md px-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                                onClick={(e) => e.stopPropagation()}
+                                                                onBlur={(e) => {
+                                                                    const val = parseFloat(e.target.value);
+                                                                    if (!isNaN(val)) {
+                                                                        markItemPurchased(stop.id, item.id, val);
+                                                                    }
+                                                                }}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Stop Actions - Saltar / Completar */}
+                                    {!isCompleted && !isSkipped && (
+                                        <div className="flex gap-3 pt-2">
+                                            <Button
                                                 variant="outline"
-                                                className="flex-1 border-gray-300 text-gray-700 hover:bg-gray-50"
+                                                className="flex-1 h-10 border-gray-300 text-gray-600 rounded-lg font-medium"
                                                 onClick={() => skipStop(stop.id)}
                                             >
-                                                <SkipForward className="h-4 w-4 mr-1" /> Saltar
+                                                <SkipForward className="h-4 w-4 mr-2" /> Saltar
                                             </Button>
                                             <Button
-                                                className="flex-1 bg-green-600 hover:bg-green-700"
+                                                className="flex-1 h-10 bg-[#10B981] hover:bg-[#059669] text-white rounded-lg font-medium"
                                                 onClick={() => completeStop(stop.id)}
-                                                disabled={!allItemsPurchased && stop.items.length > 0}
                                             >
-                                                <Check className="h-4 w-4 mr-1" /> Completar
+                                                Completar
                                             </Button>
                                         </div>
                                     )}
@@ -703,35 +798,65 @@ export default function MandaditoServicePage() {
                     );
                 })}
 
-                {/* Delivery Destination */}
+                {/* Delivery Destination - Compact & Clickable */}
                 {request.mandadito_type === "shopping" && (
-                    <Card className="bg-white border-2 border-blue-200 p-5 shadow-sm">
-                        <div className="flex items-start gap-4">
-                            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center flex-shrink-0 shadow-md">
-                                <Navigation className="h-6 w-6 text-white" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                                <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide mb-1">Entregar en</p>
-                                <p className="font-semibold text-gray-900 text-base mb-1">{request.delivery_address}</p>
-                                {request.delivery_references && (
-                                    <p className="text-sm text-gray-600 mt-2 flex items-start gap-2">
-                                        <span className="text-gray-400">📍</span>
-                                        <span>{request.delivery_references}</span>
-                                    </p>
-                                )}
-                            </div>
+                    <button
+                        onClick={() => setShowDeliveryMap(true)}
+                        className="w-full bg-white border border-gray-200 rounded-xl p-3 flex items-center gap-3 shadow-sm active:bg-gray-50 transition-colors"
+                    >
+                        <div className="w-10 h-10 rounded-lg bg-blue-500 flex items-center justify-center flex-shrink-0">
+                            <Navigation className="h-5 w-5 text-white" />
                         </div>
-                    </Card>
+                        <div className="flex-1 min-w-0 text-left">
+                            <p className="text-[10px] font-semibold text-blue-600 uppercase tracking-wide">Entregar</p>
+                            <p className="font-medium text-gray-900 text-sm truncate">{request.delivery_address}</p>
+                        </div>
+                        <ChevronRight className="h-5 w-5 text-gray-400 flex-shrink-0" />
+                    </button>
                 )}
             </div>
 
-            {/* Fixed Bottom Action */}
-            <div className="fixed bottom-16 left-0 right-0 p-5 bg-white border-t border-gray-200 shadow-lg">
-                {!allStopsComplete ? (
-                    <div className="text-center text-gray-600 py-2">
-                        Completa todas las paradas para continuar
+            {/* Delivery Location Mini Map Modal */}
+            {showDeliveryMap && request.delivery_lat && request.delivery_lng && (
+                <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-xl">
+                        {/* Map Header */}
+                        <div className="bg-blue-500 px-4 py-3 flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <MapPin className="h-5 w-5 text-white" />
+                                <span className="font-semibold text-white">Punto de entrega</span>
+                            </div>
+                            <button
+                                onClick={() => setShowDeliveryMap(false)}
+                                className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30"
+                            >
+                                <X className="h-5 w-5 text-white" />
+                            </button>
+                        </div>
+
+                        {/* Map Container - Simple marker only, no routes */}
+                        <div className="h-56 relative">
+                            <SimpleLocationMap
+                                lat={request.delivery_lat}
+                                lng={request.delivery_lng}
+                                markerColor="#3b82f6"
+                            />
+                        </div>
+
+                        {/* Info */}
+                        <div className="p-4 border-t border-gray-100">
+                            <p className="text-sm text-gray-800 font-medium">{request.delivery_address}</p>
+                            {request.delivery_references && (
+                                <p className="text-xs text-gray-500 mt-1">📍 {request.delivery_references}</p>
+                            )}
+                        </div>
                     </div>
-                ) : request.status === 'assigned' ? (
+                </div>
+            )}
+
+            {/* Fixed Bottom Action - Only shows when ready */}
+            {allStopsComplete && request.status === 'assigned' && (
+                <div className="fixed bottom-16 left-0 right-0 p-5 bg-white border-t border-gray-200 shadow-lg">
                     <Button
                         className="w-full h-14 text-lg bg-blue-600 hover:bg-blue-700"
                         onClick={startDelivery}
@@ -739,8 +864,9 @@ export default function MandaditoServicePage() {
                         <Navigation className="h-5 w-5 mr-2" />
                         Iniciar viaje al domicilio
                     </Button>
-                ) : null}
-            </div>
+                </div>
+            )
+            }
 
             {/* Cancel Modal */}
             <Dialog open={showCancelModal} onOpenChange={setShowCancelModal}>
@@ -770,6 +896,95 @@ export default function MandaditoServicePage() {
                             {cancelling ? <Loader2 className="h-4 w-4 animate-spin" /> : "Sí, cancelar"}
                         </Button>
                     </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Map Modal */}
+            {/* Map Modal (Centered, Half Screen) */}
+            <Dialog open={!!selectedMapStop} onOpenChange={(open) => {
+                if (!open) {
+                    setSelectedMapStop(null);
+                    setIsNavigatingToStore(false);
+                }
+            }}>
+                <DialogContent className="sm:max-w-lg w-[90%] p-0 overflow-hidden bg-white border-0 rounded-2xl">
+                    <DialogHeader className="sr-only">
+                        <DialogTitle>Ubicación de Tienda</DialogTitle>
+                        <DialogDescription>Mapa de ubicación de la tienda</DialogDescription>
+                    </DialogHeader>
+
+                    {/* Header */}
+                    <div className="p-3 bg-[#10B981] flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <MapPin className="h-4 w-4 text-white" />
+                            <span className="font-semibold text-white text-sm">
+                                {isNavigatingToStore ? 'Navegando' : 'Ubicación de Tienda'}
+                            </span>
+                        </div>
+                        <button
+                            onClick={() => {
+                                setSelectedMapStop(null);
+                                setIsNavigatingToStore(false);
+                            }}
+                            className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30"
+                        >
+                            <X className="h-4 w-4 text-white" />
+                        </button>
+                    </div>
+
+                    {/* Map Area - Toggles between simple marker and navigation */}
+                    <div className={`${isNavigatingToStore ? 'h-[50vh]' : 'h-56'} relative bg-gray-100 w-full transition-all`}>
+                        {selectedMapStop?.lat && selectedMapStop?.lng ? (
+                            isNavigatingToStore ? (
+                                (() => {
+                                    // Use driver location if available, otherwise use a fallback position near the store
+                                    const startLocation = driverLocation?.lat && driverLocation?.lng
+                                        ? { lat: driverLocation.lat, lng: driverLocation.lng }
+                                        : { lat: selectedMapStop.lat - 0.005, lng: selectedMapStop.lng - 0.005 }; // ~500m away
+
+                                    return (
+                                        <DriverNavigationMap
+                                            ref={mapRef}
+                                            pickupLocation={startLocation}
+                                            dropoffLocation={{ lat: selectedMapStop.lat, lng: selectedMapStop.lng }}
+                                            driverLocation={driverLocation || { lat: startLocation.lat, lng: startLocation.lng }}
+                                            className="w-full h-full"
+                                            trackingStep="picked_up"
+                                        />
+                                    );
+                                })()
+                            ) : (
+                                <SimpleLocationMap
+                                    lat={selectedMapStop.lat}
+                                    lng={selectedMapStop.lng}
+                                    markerColor="#10B981"
+                                />
+                            )
+                        ) : (
+                            <div className="flex items-center justify-center h-full text-gray-400">
+                                Sin coordenadas
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Store Info & Navigation Button */}
+                    <div className="p-4 border-t border-gray-100">
+                        <p className="text-sm text-gray-800 font-bold mb-2">{selectedMapStop?.address}</p>
+
+                        {!isNavigatingToStore && selectedMapStop?.lat && selectedMapStop?.lng && (
+                            <Button
+                                className="w-full bg-[#10B981] hover:bg-[#059669] text-white h-11 rounded-xl font-bold flex items-center justify-center gap-2 mt-2"
+                                onClick={() => {
+                                    setIsNavigatingToStore(true);
+                                    mapRef.current?.startNavigation();
+                                    toast.success("Navegación iniciada");
+                                }}
+                            >
+                                <NavigationIcon className="h-4 w-4" />
+                                Ir a {selectedMapStop.address.split(',')[0]}
+                            </Button>
+                        )}
+                    </div>
                 </DialogContent>
             </Dialog>
         </div>

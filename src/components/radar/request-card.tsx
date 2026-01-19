@@ -44,82 +44,76 @@ export function RequestCard({ request, driverLocation, onCardClick, onOffer, onA
 
     return (
         <Card
-            className="overflow-hidden border-0 shadow-lg rounded-2xl cursor-pointer active:scale-[0.98] transition-all duration-200 hover:shadow-xl"
+            className="overflow-hidden border-0 shadow-lg rounded-xl cursor-pointer active:scale-[0.98] transition-all duration-200 hover:shadow-xl"
             onClick={() => onCardClick?.(request)}
         >
             {/* Compact Header */}
-            <div className={`bg-gradient-to-r ${serviceColor} p-4 text-white`}>
-                <div className="flex items-center justify-between mb-3">
+            <div className={`bg-gradient-to-r ${serviceColor} p-3 text-white`}>
+                <div className="flex items-center justify-between mb-2">
                     {/* Service Badge */}
-                    <div className="flex items-center gap-2">
-                        <CheckCircle className="w-5 h-5" />
-                        <span className="text-lg font-bold capitalize">
+                    <div className="flex items-center gap-1.5">
+                        <CheckCircle className="w-4 h-4" />
+                        <span className="text-sm font-bold capitalize">
                             {request.service_type === 'taxi' ? 'Taxi' : 'Mandadito'}
                         </span>
                     </div>
 
                     {/* Timer */}
                     {secondsRemaining > 0 && (
-                        <div className={`flex items-center gap-1 px-2.5 py-1 rounded-full font-bold text-sm ${secondsRemaining <= 10
+                        <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full font-bold text-xs ${secondsRemaining <= 10
                             ? 'bg-red-500/40 text-white'
                             : 'bg-white/20 text-white'
                             }`}>
-                            <Timer className="w-4 h-4" />
+                            <Timer className="w-3 h-3" />
                             <span>{secondsRemaining}s</span>
                         </div>
                     )}
                 </div>
 
-                {/* Large Price */}
-                <div className="mb-2">
+                {/* Price Row */}
+                <div className="flex items-center justify-between">
                     <div className="flex items-baseline gap-1">
-                        <span className="text-4xl font-black">${price}</span>
-                        <span className="text-white/80 text-lg">MXN</span>
+                        <span className="text-3xl font-black">${price}</span>
+                        <span className="text-white/80 text-sm">MXN</span>
                     </div>
-                </div>
-
-                {/* Basic Info */}
-                <div className="text-sm text-white/90">
-                    {request.service_type === 'mandadito' ? (
-                        <p>🛒 {request.request_stops?.length || 0} parada{(request.request_stops?.length || 0) !== 1 ? 's' : ''}</p>
-                    ) : (
-                        <p className="truncate">📍 {request.origin_neighborhood || request.origin_address || 'Origen'}</p>
-                    )}
-                </div>
-
-                {/* View Details Hint */}
-                <div className="text-center text-white/70 text-xs mt-2">
-                    Haz clic para ver mapa y detalles
+                    {/* Basic Info */}
+                    <div className="text-xs text-white/90">
+                        {request.service_type === 'mandadito' ? (
+                            <span>🛒 {request.request_stops?.length || 0} parada{(request.request_stops?.length || 0) !== 1 ? 's' : ''}</span>
+                        ) : (
+                            <span className="truncate">📍 {request.origin_neighborhood || 'Origen'}</span>
+                        )}
+                    </div>
                 </div>
             </div>
 
             {/* Action Buttons */}
-            <div className="bg-white p-3 flex gap-2">
+            <div className="bg-white px-3 py-2 flex gap-2 justify-center">
                 <Button
                     variant="outline"
-                    className={`flex-1 ${request.service_type === 'mandadito'
+                    className={`flex-1 max-w-[120px] ${request.service_type === 'mandadito'
                         ? 'border-blue-300 text-blue-600 hover:bg-blue-50'
                         : 'border-indigo-300 text-indigo-600 hover:bg-indigo-50'
-                        } rounded-xl h-11 font-semibold`}
+                        } rounded-lg h-8 font-medium text-xs`}
                     onClick={(e: React.MouseEvent) => {
                         e.stopPropagation();
                         onOffer(request);
                     }}
                 >
-                    <DollarSign className="h-4 w-4 mr-1" />
+                    <DollarSign className="h-3 w-3 mr-1 flex-shrink-0" />
                     Ofertar
                 </Button>
                 <Button
-                    className={`flex-1 ${request.service_type === 'mandadito'
-                        ? 'bg-blue-500 hover:bg-blue-600'
+                    className={`flex-1 max-w-[120px] ${request.service_type === 'mandadito'
+                        ? 'bg-blue-600 hover:bg-blue-700'
                         : 'bg-indigo-500 hover:bg-indigo-600'
-                        } text-white font-bold rounded-xl h-11`}
+                        } text-white font-semibold rounded-lg h-8 text-xs`}
                     onClick={(e: React.MouseEvent) => {
                         e.stopPropagation();
                         onAccept(request);
                     }}
                 >
-                    <CheckCircle className="h-4 w-4 mr-1" />
+                    <CheckCircle className="h-3 w-3 mr-1 flex-shrink-0" />
                     Aceptar
                 </Button>
             </div>

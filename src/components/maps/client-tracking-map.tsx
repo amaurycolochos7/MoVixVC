@@ -24,6 +24,7 @@ function isValidCoords(coords?: Coordinates): boolean {
 
 // Import assets
 import CarIcon from "@/assets/map/car-topdown.svg";
+import MotoIcon from "@/assets/map/moto-topdown.svg";
 import PickupIcon from "@/assets/map/pin-pickup.svg";
 import DropoffIcon from "@/assets/map/pin-dropoff.svg";
 
@@ -41,7 +42,8 @@ interface ClientTrackingMapProps {
     serviceId: string;
     pickupLocation: Coordinates;
     dropoffLocation?: Coordinates;
-    trackingStep: string; // Changed from serviceStatus to trackingStep
+    trackingStep: string;
+    serviceType?: string; // NEW PROP
     className?: string;
 }
 
@@ -62,6 +64,7 @@ export function ClientTrackingMap({
     pickupLocation,
     dropoffLocation,
     trackingStep,
+    serviceType = 'taxi', // Default to taxi
     className = "w-full h-96 rounded-xl overflow-hidden",
 }: ClientTrackingMapProps) {
     const mapRef = useRef<any>(null);
@@ -125,24 +128,32 @@ export function ClientTrackingMap({
 
     // useMapInteractionDetector(mapRef, followCamera.disableFollow);
 
-    // Route layers
-    const routeLayer = useMemo(() => ({
-        id: "route",
+    // Route layers - Matched to Standard Blue Casing style
+    const routeInnerLayer = useMemo(() => ({
+        id: "route-inner",
         type: "line" as const,
+        layout: {
+            "line-join": "round" as const,
+            "line-cap": "round" as const
+        },
         paint: {
-            "line-color": "#3b82f6",
+            "line-color": "#3b82f6", // Bright blue
             "line-width": 5,
-            "line-opacity": 0.8,
+            "line-opacity": 1,
         },
     }), []);
 
-    const routeBackgroundLayer = useMemo(() => ({
-        id: "route-bg",
+    const routeCasingLayer = useMemo(() => ({
+        id: "route-casing",
         type: "line" as const,
+        layout: {
+            "line-join": "round" as const,
+            "line-cap": "round" as const
+        },
         paint: {
-            "line-color": "#1e3a8a",
+            "line-color": "#1e40af", // Darker blue border
             "line-width": 8,
-            "line-opacity": 0.4,
+            "line-opacity": 0.8,
         },
     }), []);
 
@@ -155,6 +166,9 @@ export function ClientTrackingMap({
 
     const displayPosition = isValidCoords(animatedDriver.position) ? animatedDriver.position : (isValidCoords(pickupLocation) ? pickupLocation : DEFAULT_CENTER);
     const centerPosition = isValidCoords(pickupLocation) ? pickupLocation : DEFAULT_CENTER;
+
+    // Choose icon based on service type
+    const VehicleIcon = serviceType === 'mandadito' ? MotoIcon : CarIcon;
 
     return (
         <div className={`${className} relative`}>
@@ -181,8 +195,8 @@ export function ClientTrackingMap({
                 {/* Route line */}
                 {smartRoute.route && (
                     <Source id="route-source" type="geojson" data={routeGeoJSON}>
-                        <Layer {...routeBackgroundLayer} />
-                        <Layer {...routeLayer} />
+                        <Layer {...routeCasingLayer} />
+                        <Layer {...routeInnerLayer} />
                     </Source>
                 )}
 
@@ -213,9 +227,9 @@ export function ClientTrackingMap({
                         rotation={animatedDriver.bearing}
                     >
                         <div className="relative">
-                            {/* Car Icon with shadow */}
+                            {/* Vehicle Icon with shadow - Moto or Car */}
                             <div className="drop-shadow-lg">
-                                <img src={CarIcon.src} alt="" className="w-9 h-9" />
+                                <img src={VehicleIcon.src} alt="" className="w-10 h-10" />
                             </div>
                         </div>
                     </Marker>

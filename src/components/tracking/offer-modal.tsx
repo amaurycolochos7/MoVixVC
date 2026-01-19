@@ -39,7 +39,7 @@ export function OfferModal({ offer, onClose, onAccept, onCounter, onReject }: Of
     if (!offer) return null;
 
     return (
-        <Dialog open={true} onOpenChange={onClose}>
+        <Dialog open={true} onOpenChange={() => onReject(offer)}>
             <DialogContent className="bg-white text-slate-900 rounded-2xl max-w-sm w-[90%] p-6 pt-8 border-none shadow-2xl">
                 <DialogHeader>
                     <DialogTitle className="text-center text-xl font-bold mb-2">¡Oferta recibida!</DialogTitle>
@@ -88,10 +88,17 @@ export function OfferModal({ offer, onClose, onAccept, onCounter, onReject }: Of
                     <div className="relative">
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold">$</span>
                         <Input
-                            type="number"
-                            value={counterPrice}
-                            onChange={(e) => setCounterPrice(Number(e.target.value))}
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            value={counterPrice === 0 ? '' : counterPrice}
+                            onChange={(e) => {
+                                const val = e.target.value.replace(/[^0-9]/g, '');
+                                setCounterPrice(val === '' ? 0 : parseInt(val, 10));
+                            }}
+                            onFocus={(e) => e.target.select()}
                             className="text-lg font-bold pl-8 h-12 text-center bg-gray-50 border-gray-200 focus:bg-white transition-all"
+                            placeholder="0"
                         />
                     </div>
                 </div>

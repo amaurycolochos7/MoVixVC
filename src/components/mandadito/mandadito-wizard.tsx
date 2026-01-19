@@ -4,7 +4,7 @@ import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, ShoppingBag, Package, MapPin, Plus, Trash2, ChevronDown, ChevronUp, Loader2, Check, Store, Bike, Navigation } from "lucide-react";
+import { ArrowLeft, ShoppingBag, Package, MapPin, Plus, Trash2, ChevronDown, ChevronUp, Loader2, Check, Store, Bike, Navigation, CreditCard } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { LocationPickerMap } from "@/components/maps/location-picker-map";
@@ -357,16 +357,14 @@ export function MandaditoWizard() {
                     <div className="grid grid-cols-2 gap-3">
                         {/* Shopping Option */}
                         <div
-                            onClick={() => setMandaditoType("shopping")}
-                            className={`bg-white rounded-xl p-4 shadow-md border-2 transition-all cursor-pointer flex flex-col items-center text-center ${mandaditoType === "shopping"
-                                ? "border-orange-500 bg-orange-50"
-                                : "border-transparent"
-                                }`}
+                            onClick={() => {
+                                setMandaditoType("shopping");
+                                setStep("stops");
+                            }}
+                            className="bg-white rounded-xl p-4 shadow-md border-2 border-transparent hover:border-orange-300 transition-all cursor-pointer flex flex-col items-center text-center active:scale-95"
                         >
-                            <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-2 ${mandaditoType === "shopping" ? "bg-orange-500" : "bg-orange-100"
-                                }`}>
-                                <ShoppingBag className={`h-6 w-6 ${mandaditoType === "shopping" ? "text-white" : "text-orange-500"
-                                    }`} />
+                            <div className="w-12 h-12 rounded-full bg-orange-100 flex items-center justify-center mb-2">
+                                <ShoppingBag className="h-6 w-6 text-orange-500" />
                             </div>
                             <h3 className="font-bold text-gray-900 text-sm">Compras</h3>
                             <p className="text-gray-500 text-xs mt-1">Tiendas, farmacias, super...</p>
@@ -374,16 +372,14 @@ export function MandaditoWizard() {
 
                         {/* Payment/Deposit Option */}
                         <div
-                            onClick={() => setMandaditoType("payment")}
-                            className={`bg-white rounded-xl p-4 shadow-md border-2 transition-all cursor-pointer flex flex-col items-center text-center ${mandaditoType === "payment"
-                                ? "border-green-500 bg-green-50"
-                                : "border-transparent"
-                                }`}
+                            onClick={() => {
+                                setMandaditoType("payment");
+                                setStep("stops");
+                            }}
+                            className="bg-white rounded-xl p-4 shadow-md border-2 border-transparent hover:border-green-300 transition-all cursor-pointer flex flex-col items-center text-center active:scale-95"
                         >
-                            <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-2 ${mandaditoType === "payment" ? "bg-green-500" : "bg-green-100"
-                                }`}>
-                                <span className={`text-xl ${mandaditoType === "payment" ? "text-white" : "text-green-500"
-                                    }`}>💳</span>
+                            <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center mb-2">
+                                <CreditCard className="h-6 w-6 text-green-500" />
                             </div>
                             <h3 className="font-bold text-gray-900 text-sm">Pagos</h3>
                             <p className="text-gray-500 text-xs mt-1">Depósitos, pagos de luz...</p>
@@ -391,66 +387,19 @@ export function MandaditoWizard() {
 
                         {/* Package Pickup/Delivery Option */}
                         <div
-                            onClick={() => setMandaditoType("delivery")}
-                            className={`bg-white rounded-xl p-4 shadow-md border-2 transition-all cursor-pointer flex flex-col items-center text-center ${mandaditoType === "delivery"
-                                ? "border-blue-500 bg-blue-50"
-                                : "border-transparent"
-                                }`}
+                            onClick={() => {
+                                setMandaditoType("delivery");
+                                setStep("delivery");
+                            }}
+                            className="bg-white rounded-xl p-4 shadow-md border-2 border-transparent hover:border-blue-300 transition-all cursor-pointer flex flex-col items-center text-center active:scale-95"
                         >
-                            <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-2 ${mandaditoType === "delivery" ? "bg-blue-500" : "bg-blue-100"
-                                }`}>
-                                <Package className={`h-6 w-6 ${mandaditoType === "delivery" ? "text-white" : "text-blue-500"
-                                    }`} />
+                            <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center mb-2">
+                                <Package className="h-6 w-6 text-blue-500" />
                             </div>
                             <h3 className="font-bold text-gray-900 text-sm">Paquete</h3>
                             <p className="text-gray-500 text-xs mt-1">Recoger y entregar</p>
                         </div>
-
-                        {/* Custom Errand Option */}
-                        <div
-                            onClick={() => setMandaditoType("custom")}
-                            className={`bg-white rounded-xl p-4 shadow-md border-2 transition-all cursor-pointer flex flex-col items-center text-center ${mandaditoType === "custom"
-                                ? "border-purple-500 bg-purple-50"
-                                : "border-transparent"
-                                }`}
-                        >
-                            <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-2 ${mandaditoType === "custom" ? "bg-purple-500" : "bg-purple-100"
-                                }`}>
-                                <span className={`text-xl ${mandaditoType === "custom" ? "text-white" : "text-purple-500"
-                                    }`}>📋</span>
-                            </div>
-                            <h3 className="font-bold text-gray-900 text-sm">Otro</h3>
-                            <p className="text-gray-500 text-xs mt-1">Cualquier mandado</p>
-                        </div>
                     </div>
-
-                    {/* Dynamic Explanation */}
-                    <div className="mt-4 bg-gray-100 rounded-xl p-4">
-                        <p className="text-sm text-gray-700">
-                            {mandaditoType === "shopping" && "🛒 Iremos a las tiendas que indiques, compraremos tus productos y te los llevamos."}
-                            {mandaditoType === "payment" && "💳 Hacemos tus pagos de servicios, depósitos bancarios o cualquier trámite similar."}
-                            {mandaditoType === "delivery" && "📦 Recogemos tu paquete de un lugar y lo entregamos donde indiques."}
-                            {mandaditoType === "custom" && "📋 Describe lo que necesitas y el mensajero lo realizará por ti."}
-                            {!mandaditoType && "Selecciona una opción para continuar"}
-                        </p>
-                    </div>
-                </div>
-
-                {/* Bottom Button */}
-                <div className="fixed bottom-16 left-0 right-0 p-4 bg-white border-t border-gray-100 z-50">
-                    <Button
-                        className="w-full h-14 text-lg font-semibold rounded-xl bg-orange-500 hover:bg-orange-600 text-white shadow-lg shadow-orange-200"
-                        disabled={!mandaditoType}
-                        onClick={() => {
-                            if (mandaditoType === "shopping" || mandaditoType === "payment") {
-                                setStep("stops");
-                            } else {
-                                setStep("delivery");
-                            }
-                        }}
-                    >
-                        Continuar
-                    </Button>
                 </div>
             </div>
         );
@@ -895,13 +844,6 @@ export function MandaditoWizard() {
                                 className="bg-gray-50 border-gray-200 text-gray-900 rounded-xl text-sm"
                             />
                         </div>
-                    </div>
-
-                    {/* Pricing Info */}
-                    <div className="bg-gradient-to-r from-orange-50 to-amber-50 rounded-2xl p-4 border border-orange-100">
-                        <p className="text-sm text-gray-700">
-                            <span className="font-medium">💰 Sobre el pago:</span> El mandadito te enviará una oferta por el servicio. El costo de los productos se paga contra entrega.
-                        </p>
                     </div>
                 </div>
 

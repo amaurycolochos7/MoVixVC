@@ -242,7 +242,7 @@ export function MandaditoClientTracking({ requestId, request, driver }: Mandadit
                             <h1 className="font-bold text-white">
                                 {request.mandadito_type === 'shopping' ? 'Compras' : 'Mandadito'}
                             </h1>
-                            <p className="text-orange-100 text-xs">{driver?.full_name || 'Mandadero asignado'}</p>
+                            <p className="text-orange-100 text-xs">{driver?.full_name || 'Mandadito asignado'}</p>
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -374,7 +374,7 @@ export function MandaditoClientTracking({ requestId, request, driver }: Mandadit
                             ¿Cancelar servicio?
                         </DialogTitle>
                         <DialogDescription className="text-gray-600">
-                            Esta acción cancelará tu solicitud de mandadito. El mandadero será notificado.
+                            Esta acción cancelará tu solicitud de mandadito. El mandadito será notificado.
                         </DialogDescription>
                     </DialogHeader>
                     <DialogFooter className="flex gap-3 mt-4">
@@ -428,7 +428,7 @@ function MandaditoDeliveryView({
                         <Navigation className="h-6 w-6 text-white animate-pulse" />
                         <div>
                             <h1 className="font-bold text-lg">En camino a tu domicilio</h1>
-                            <p className="text-blue-100 text-sm">{driver?.full_name || 'Mandadero'}</p>
+                            <p className="text-blue-100 text-sm">{driver?.full_name || 'Mandadito'}</p>
                         </div>
                     </div>
                     <Button
@@ -464,7 +464,7 @@ function MandaditoDeliveryView({
                             </p>
                         </div>
                         <div className="text-orange-100 text-xs text-right max-w-[120px]">
-                            Proporciona este PIN al mandadero
+                            Proporciona este PIN al mandadito
                         </div>
                     </div>
                 </div>

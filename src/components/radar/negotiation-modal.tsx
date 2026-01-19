@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Clock, CheckCircle } from "lucide-react";
+import { Clock, CheckCircle, DollarSign, X } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
 import { MiniMapPreview } from "@/components/maps/mini-map-preview";
@@ -80,7 +80,7 @@ export function NegotiationModal({ request, driverLocation, onClose, onAccept }:
     const supabase = createClient(); // Ensure createClient is imported
     console.log("🛠️ NEGOTIATION MODAL REQUEST:", request);
 
-    const [offerAmount, setOfferAmount] = useState<number>(0);
+    const [offerAmount, setOfferAmount] = useState<string>("");
     const [mounted, setMounted] = useState(false);
     const [showMap, setShowMap] = useState(false);
     const [mapLocation, setMapLocation] = useState<{ lat: number, lng: number } | null>(null);
@@ -131,7 +131,7 @@ export function NegotiationModal({ request, driverLocation, onClose, onAccept }:
         const defaultPrice = request.service_type === 'taxi'
             ? 35
             : (request.estimated_price || 22);
-        setOfferAmount(defaultPrice);
+        setOfferAmount(String(defaultPrice));
     }, [request]);
 
     // Calculate metrics
@@ -404,9 +404,15 @@ export function NegotiationModal({ request, driverLocation, onClose, onAccept }:
                     <div className="relative mb-4">
                         <div className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl font-bold text-slate-500">$</div>
                         <Input
-                            type="number"
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
                             value={offerAmount}
-                            onChange={e => setOfferAmount(parseFloat(e.target.value) || 0)}
+                            onChange={e => {
+                                const val = e.target.value.replace(/[^0-9]/g, '');
+                                setOfferAmount(val);
+                            }}
+                            onFocus={e => e.target.select()}
                             className="w-full h-14 text-2xl font-bold pl-10 border-slate-700 bg-slate-800 text-white focus:ring-orange-500 rounded-xl"
                             placeholder="0"
                         />
@@ -415,11 +421,11 @@ export function NegotiationModal({ request, driverLocation, onClose, onAccept }:
                         {[40, 50, 60, 70].map(price => (
                             <Button
                                 key={price}
-                                variant={offerAmount === price ? "default" : "outline"}
-                                className={`h-10 border-slate-700 ${offerAmount === price
+                                variant={offerAmount === String(price) ? "default" : "outline"}
+                                className={`h-10 border-slate-700 ${offerAmount === String(price)
                                     ? "bg-emerald-600 text-white border-emerald-600"
                                     : "bg-slate-800 text-slate-300 hover:bg-slate-700"}`}
-                                onClick={() => setOfferAmount(price)}
+                                onClick={() => setOfferAmount(String(price))}
                             >
                                 ${price}
                             </Button>
@@ -427,19 +433,23 @@ export function NegotiationModal({ request, driverLocation, onClose, onAccept }:
                     </div>
                 </div>
 
-                {/* Action Buttons */}
+                {/* Action Buttons - Mobile Optimized */}
                 <div className="mt-6 flex gap-3">
                     <Button
-                        variant="outline"
-                        className="flex-1 h-14 rounded-xl border-slate-700 bg-slate-800 text-white hover:bg-slate-700"
-                        onClick={onClose}
+                        className="flex-1 h-12 rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white font-semibold text-sm shadow-lg"
+                        onClick={() => {
+                            // Explicitly pass displayPrice to avoid fallback to taxi default ($35)
+                            onAccept(request, displayPrice);
+                        }}
                     >
-                        Cerrar
+                        <CheckCircle className="h-4 w-4 mr-1.5 flex-shrink-0" />
+                        Aceptar ${displayPrice}
                     </Button>
                     <Button
-                        className="flex-[2] h-14 rounded-xl bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-bold text-lg shadow-lg shadow-orange-500/20"
-                        onClick={() => onAccept(request, offerAmount)}
+                        className="flex-1 h-12 rounded-xl bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-semibold text-sm shadow-lg"
+                        onClick={() => onAccept(request, parseInt(offerAmount, 10) || 0)}
                     >
+                        <DollarSign className="h-4 w-4 mr-1.5 flex-shrink-0" />
                         Enviar Oferta
                     </Button>
                 </div>
@@ -461,6 +471,8 @@ export function NegotiationModal({ request, driverLocation, onClose, onAccept }:
                     stop={selectedStop}
                     stopIndex={selectedStopIndex}
                     onClose={() => setSelectedStop(null)}
+                    onAccept={(req) => onAccept(req)}  // Pass acceptance handler
+                    request={request}  // Pass full request for acceptance
                 />
             )}
         </div>

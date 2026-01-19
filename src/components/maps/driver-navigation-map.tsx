@@ -14,6 +14,11 @@ const MAP_STYLE = "mapbox://styles/mapbox/navigation-day-v1";
 // Default center (CDMX) to prevent Null Island (0,0)
 const DEFAULT_CENTER = { lat: 19.4326, lng: -99.1332 };
 
+export interface DriverNavigationMapRef {
+    startNavigation: () => void;
+}
+
+
 /**
  * Helper to check if coords are valid (non-zero)
  */
@@ -22,7 +27,7 @@ function isValidCoords(coords?: Coordinates | null): boolean {
 }
 
 // Import assets
-import CarIcon from "@/assets/map/car-topdown.svg";
+import CarIcon from "@/assets/map/moto-topdown.svg";
 import PickupIcon from "@/assets/map/pin-pickup.svg";
 
 // Dynamic imports to avoid SSR issues
@@ -66,14 +71,16 @@ interface DriverNavigationMapProps {
     trackingStep?: string;
 }
 
-export function DriverNavigationMap({
+import { forwardRef, useImperativeHandle } from "react";
+
+export const DriverNavigationMap = forwardRef<DriverNavigationMapRef, DriverNavigationMapProps>(({
     pickupLocation,
     dropoffLocation,
     driverLocation,
     className = "w-full h-full",
     onRouteMetricsChange,
     trackingStep = "accepted"
-}: DriverNavigationMapProps) {
+}, ref) => {
     const mapRef = useRef<any>(null);
 
     // Animated marker for smooth driver movement
@@ -86,15 +93,6 @@ export function DriverNavigationMap({
     // trip: picked_up, in_transit
     const phase = useMemo(() => {
         const newPhase = ["picked_up", "in_transit"].includes(trackingStep) ? "trip" : "pickup";
-
-        if (process.env.NODE_ENV === "development") {
-            console.log(`📍 [DriverNavigationMap] Phase calculation:`, {
-                trackingStep,
-                phase: newPhase,
-                hasDropoff: !!dropoffLocation
-            });
-        }
-
         return newPhase;
     }, [trackingStep, dropoffLocation]);
 
@@ -125,18 +123,12 @@ export function DriverNavigationMap({
         }
     }, [smartRoute.eta, smartRoute.distance, smartRoute.isOffRoute, onRouteMetricsChange]);
 
-    // Camera target logic:
-    // If we have driver location (animated or raw), follow driver.
-    // If NOT (waiting for GPS), center on the TARGET destination (Pickup or Dropoff) depending on phase.
-    // NEVER fake driver position by centering on client while claiming it's driver.
-
+    // Camera target logic
     const hasDriverLocation = (animatedDriver.position.lat !== 0) || (driverLocation && driverLocation.lat !== 0);
 
     const cameraTarget = useMemo(() => {
         if (isValidCoords(animatedDriver.position)) return animatedDriver.position;
         if (isValidCoords(driverLocation)) return driverLocation!;
-
-        // Fallback: Target destination
         const target = phase === "trip" && dropoffLocation ? dropoffLocation : pickupLocation;
         return isValidCoords(target) ? target : DEFAULT_CENTER;
     }, [animatedDriver.position, driverLocation, phase, pickupLocation, dropoffLocation]);
@@ -145,14 +137,34 @@ export function DriverNavigationMap({
     const followCamera = useFollowCamera({
         mapRef,
         targetPosition: cameraTarget,
-        targetBearing: 0, // No rotation - keep north up
-        enabled: hasDriverLocation, // Only follow if we actually have a driver location
+        targetBearing: animatedDriver.bearing, // Follow rotation
+        enabled: hasDriverLocation,
         zoom: 16,
-        pitch: 0, // Flat 2D view
+        pitch: 0,
     });
 
     // Detect user interaction to disable follow
     useMapInteractionDetector(mapRef, followCamera.disableFollow);
+
+    // Expose methods to parent
+    useImperativeHandle(ref, () => ({
+        startNavigation: () => {
+            if (mapRef.current) {
+                // Pitch 50 + Zoom 17 for navigation view
+                mapRef.current.easeTo({
+                    pitch: 50,
+                    zoom: 17,
+                    bearing: animatedDriver.bearing,
+                    duration: 1000
+                });
+                // Enable following with strict locking
+                setTimeout(() => {
+                    followCamera.enableFollow();
+                }, 1000); // Wait for transition
+            }
+        }
+    }));
+
 
     // Feed GPS points to animated marker
     useEffect(() => {
@@ -168,24 +180,32 @@ export function DriverNavigationMap({
         }
     }, [driverLocation, animatedDriver]);
 
-    // Route layer styles
-    const routeLayer = useMemo(() => ({
-        id: "route",
+    // Route layer styles - Matched to StopMapModal (Blue Casing)
+    const routeInnerLayer = useMemo(() => ({
+        id: "route-inner",
         type: "line" as const,
+        layout: {
+            "line-join": "round" as const,
+            "line-cap": "round" as const
+        },
         paint: {
-            "line-color": "#22c55e",
-            "line-width": 6,
-            "line-opacity": 0.9,
+            "line-color": "#3b82f6", // Bright blue
+            "line-width": 5,
+            "line-opacity": 1,
         },
     }), []);
 
-    const routeBackgroundLayer = useMemo(() => ({
-        id: "route-bg",
+    const routeCasingLayer = useMemo(() => ({
+        id: "route-casing",
         type: "line" as const,
+        layout: {
+            "line-join": "round" as const,
+            "line-cap": "round" as const
+        },
         paint: {
-            "line-color": "#15803d",
-            "line-width": 10,
-            "line-opacity": 0.4,
+            "line-color": "#1e40af", // Darker blue border
+            "line-width": 8,
+            "line-opacity": 0.8,
         },
     }), []);
 
@@ -256,14 +276,14 @@ export function DriverNavigationMap({
                 dragRotate={false} // Disable rotation with drag
                 pitchWithRotate={false}
                 keyboard={false} // Disable keyboard shortcuts
-                maxPitch={0} // Lock pitch at 0
+                maxPitch={60}
                 minPitch={0}
             >
                 {/* Route line */}
                 {smartRoute.route && (
                     <Source id="route-source" type="geojson" data={routeGeoJSON}>
-                        <Layer {...routeBackgroundLayer} />
-                        <Layer {...routeLayer} />
+                        <Layer {...routeCasingLayer} />
+                        <Layer {...routeInnerLayer} />
                     </Source>
                 )}
 
@@ -336,4 +356,4 @@ export function DriverNavigationMap({
             )}
         </div>
     );
-}
+}); // Close forwardRef component
