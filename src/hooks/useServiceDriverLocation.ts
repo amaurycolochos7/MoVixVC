@@ -105,27 +105,27 @@ export function useServiceDriverLocation(options: UseServiceDriverLocationOption
                 .eq("service_id", serviceId)
                 .order("created_at", { ascending: false })
                 .limit(1)
-                .single();
+                .maybeSingle();
 
             if (error) {
-                // No locations yet is not an error
-                if (error.code === "PGRST116") {
+                // Ignore common errors that aren't really problems
+                if (error.code === "PGRST116" || error.code === "406") {
                     console.log("No initial location yet");
                     return;
                 }
-                throw error;
+                console.warn("Error fetching location:", error.message);
+                return;
             }
 
             if (data) {
                 processLocation(data as ServiceLocation);
                 console.log("✅ Initial location loaded");
+            } else {
+                console.log("No initial location yet");
             }
         } catch (err: any) {
-            console.error("Error fetching initial location:", err);
-            setState(prev => ({
-                ...prev,
-                error: err.message,
-            }));
+            console.warn("Error fetching initial location:", err?.message);
+            // Don't set error state for non-critical issues
         }
     };
 
