@@ -131,8 +131,10 @@ export async function POST(request: NextRequest) {
         const emailHtml = createEmailTemplate(code, name || '');
 
         // Send email using Resend
+        let emailError = null;
         if (process.env.RESEND_API_KEY) {
             console.log(`[OTP] Sending email to: ${email}`);
+            console.log(`[OTP] From: ${process.env.RESEND_FROM_EMAIL}`);
 
             try {
                 const resendResponse = await fetch('https://api.resend.com/emails', {
@@ -152,24 +154,23 @@ export async function POST(request: NextRequest) {
                 const resendData = await resendResponse.json();
 
                 if (!resendResponse.ok) {
-                    console.error('[OTP] Resend error (continuando en modo dev):', resendData);
-                    // No fallar - continuar para mostrar devCode
+                    console.error('[OTP] Resend error:', resendData);
+                    emailError = resendData.message || JSON.stringify(resendData);
                 } else {
                     console.log('[OTP] Email sent successfully:', resendData);
                 }
-            } catch (emailError) {
-                console.error('[OTP] Fetch error (continuando en modo dev):', emailError);
-                // No fallar - continuar para mostrar devCode
+            } catch (fetchError) {
+                console.error('[OTP] Fetch error:', fetchError);
+                emailError = 'Error de conexión con Resend';
             }
         } else {
             console.log(`[DEV] No RESEND_API_KEY - OTP for ${email}: ${code}`);
+            emailError = 'No RESEND_API_KEY configured';
         }
 
         return NextResponse.json({
             success: true,
-            message: 'Código de verificación enviado',
-            // Temporalmente en desarrollo - quitar cuando el dominio esté listo
-            devCode: code
+            message: 'Código de verificación enviado'
         });
 
     } catch (error) {
