@@ -7,7 +7,7 @@ import { Clock, Shield, Zap } from "lucide-react";
 
 export default function Home() {
   return (
-    <div className="h-screen bg-white flex flex-col overflow-hidden">
+    <div className="fixed inset-0 bg-white flex flex-col overflow-hidden">
       {/* Header naranja */}
       <div className="bg-gradient-to-br from-orange-500 to-orange-600 pt-10 pb-24 px-6 rounded-b-[40px] shrink-0">
         <div className="max-w-sm mx-auto text-center">
