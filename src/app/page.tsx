@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Clock, Shield, Zap } from "lucide-react";
 
@@ -23,17 +24,17 @@ export default function Home() {
             <div className="relative h-36 flex items-center justify-center overflow-hidden">
               {/* 1. Moto Delivery - Entra primero (0s - 4s) */}
               <div className="absolute opacity-0 animate-[vehicleOne_12s_ease-in-out_infinite]">
-                <img src="/delivery-moto.png" alt="Moto Delivery" className="h-32 w-32 object-contain" />
+                <Image src="/delivery-moto.png" alt="Moto Delivery" width={128} height={128} className="object-contain" priority />
               </div>
 
               {/* 2. Moto Ride - Entra segundo (4s - 8s) */}
               <div className="absolute opacity-0 animate-[vehicleTwo_12s_ease-in-out_infinite]">
-                <img src="/moto-ride.png" alt="Moto Ride" className="h-44 w-44 object-contain" />
+                <Image src="/moto-ride.png" alt="Moto Ride" width={176} height={176} className="object-contain" />
               </div>
 
               {/* 3. Taxi - Entra tercero (8s - 12s) */}
               <div className="absolute opacity-0 animate-[vehicleThree_12s_ease-in-out_infinite]">
-                <img src="/taxi.png" alt="Taxi" className="h-40 w-40 object-contain" />
+                <Image src="/taxi.png" alt="Taxi" width={160} height={160} className="object-contain" />
               </div>
             </div>
           </div>
