@@ -1,14 +1,15 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Radar } from "@/components/radar/radar";
 import { ServiceTracking } from "@/components/tracking/service-tracking";
 import { useActiveTrip } from "@/hooks/useActiveTrip";
 import { useAuth } from "@/contexts/auth-context";
 import { AccountPendingMessage } from "@/components/driver/account-pending";
 import { createClient } from "@/lib/supabase/client";
-import { Power, TrendingUp, Star, Clock, ChevronRight, Loader2, Zap } from "lucide-react";
+import { Car, DollarSign, Clock, Loader2, Zap, Star } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import Link from "next/link";
 
@@ -45,6 +46,7 @@ export default function TaxiHomePage() {
                 .from("service_requests")
                 .select("final_price")
                 .eq("assigned_driver_id", profile.id)
+                .eq("service_type", "taxi")
                 .eq("status", "completed")
                 .gte("completed_at", today.toISOString());
 
@@ -59,7 +61,7 @@ export default function TaxiHomePage() {
         };
 
         fetchDailyStats();
-    }, [profile?.id]);
+    }, [profile?.id, supabase]);
 
     // Sync local state with profile
     useEffect(() => {
@@ -71,30 +73,29 @@ export default function TaxiHomePage() {
     // Refresh profile on mount
     useEffect(() => {
         refreshProfile();
-    }, []);
+    }, [refreshProfile]);
 
-    const handleAvailabilityChange = async () => {
+    const handleAvailabilityChange = async (checked: boolean) => {
         if (!profile || isUpdating) return;
 
-        const newValue = !isAvailable;
         setIsUpdating(true);
-        setIsAvailable(newValue);
+        setIsAvailable(checked);
 
         try {
             const { error } = await supabase
                 .from("users")
-                .update({ is_available: newValue })
+                .update({ is_available: checked })
                 .eq("id", profile.id);
 
             if (error) {
                 toast.error("Error al actualizar disponibilidad");
-                setIsAvailable(!newValue);
+                setIsAvailable(!checked);
             } else {
-                toast.success(newValue ? "¡Estás en línea!" : "Desconectado");
+                toast.success(checked ? "¡Estás en línea!" : "Desconectado");
                 refreshProfile();
             }
         } catch (err) {
-            setIsAvailable(!newValue);
+            setIsAvailable(!checked);
         } finally {
             setIsUpdating(false);
         }
@@ -103,8 +104,8 @@ export default function TaxiHomePage() {
     // Don't render until mounted to prevent hydration mismatch
     if (!mounted) {
         return (
-            <div className="h-screen bg-gray-50 flex items-center justify-center">
-                <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+            <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+                <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
             </div>
         );
     }
@@ -129,49 +130,90 @@ export default function TaxiHomePage() {
     }
 
     return (
-        <div className="h-screen bg-gray-50 flex flex-col">
-            {/* Minimalist Top Bar - DiDi Style */}
-            <div className="bg-white px-4 py-3 shadow-sm z-10 flex items-center justify-between pointer-events-auto">
-                {/* Status Toggle - Compact */}
-                <button
-                    onClick={handleAvailabilityChange}
-                    disabled={isUpdating}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-full transition-all duration-300 shadow-sm ${isAvailable
-                        ? 'bg-emerald-100 text-emerald-800 ring-1 ring-emerald-500/20'
-                        : 'bg-slate-100 text-slate-600 ring-1 ring-slate-200'
-                        }`}
-                >
-                    <div className={`w-2.5 h-2.5 rounded-full animate-pulse ${isAvailable ? 'bg-emerald-500' : 'bg-slate-400'}`} />
-                    <span className="font-bold text-sm">
-                        {isAvailable ? 'En línea' : 'Desconectado'}
-                    </span>
-                    {isUpdating && <Loader2 className="w-3 h-3 animate-spin ml-1" />}
-                </button>
+        <div className="h-[calc(100vh-4rem)] bg-gray-100 flex flex-col overflow-hidden">
+            {/* Header - Compact with gradient */}
+            <div className="flex-shrink-0 bg-gradient-to-b from-green-500 to-green-600 text-white px-5 pt-6 pb-10">
+                <p className="text-green-200 text-xs mb-0.5">Hola, {profile?.full_name?.split(' ')[0] || "Conductor"}</p>
+                <h1 className="text-xl font-bold">Panel de conductor</h1>
+            </div>
 
-                {/* Simplified Earnings - Right side */}
-                <div className="flex items-center gap-3">
-                    <Link href="/taxi/cuenta">
-                        <div className="text-right">
-                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Ganancia</p>
-                            <p className="text-lg font-bold text-gray-900 leading-none">
-                                ${dailyStats.earnings.toFixed(0)}
-                            </p>
+            {/* Availability Card - Compact */}
+            <div className="flex-shrink-0 px-5 -mt-5 relative z-10 mb-3">
+                <Card className="p-4 bg-white shadow-lg border-0 rounded-xl">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isAvailable ? 'bg-green-100' : 'bg-gray-100'}`}>
+                                <div className={`w-3 h-3 rounded-full ${isAvailable ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
+                            </div>
+                            <div>
+                                <p className="font-bold text-gray-900">
+                                    {isAvailable ? "En línea" : "Desconectado"}
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                    {isAvailable ? "Recibiendo solicitudes" : "Toca para conectarte"}
+                                </p>
+                            </div>
                         </div>
-                    </Link>
-                    <div className="w-px h-8 bg-gray-200 mx-1" />
-                    <div className="flex flex-col items-center">
-                        <div className="flex items-center gap-1 text-yellow-600">
-                            <span className="text-sm font-bold">4.9</span>
-                            <Star className="w-3 h-3 fill-yellow-500 text-yellow-500" />
-                        </div>
-                        <p className="text-[10px] text-gray-400 font-medium">Rating</p>
+                        <Switch
+                            checked={isAvailable}
+                            onCheckedChange={handleAvailabilityChange}
+                            disabled={isUpdating}
+                            className="data-[state=checked]:bg-green-500"
+                        />
                     </div>
+                </Card>
+            </div>
+
+            {/* Stats Cards - Compact */}
+            <div className="flex-shrink-0 px-5 mb-3">
+                <div className="grid grid-cols-3 gap-2">
+                    <Card className="p-3 bg-white shadow-sm border-0 rounded-xl">
+                        <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-2">
+                            <Car className="h-4 w-4 text-green-500" />
+                        </div>
+                        <p className="text-xl font-bold text-gray-900 text-center">{dailyStats.trips}</p>
+                        <p className="text-[10px] text-gray-500 text-center">Viajes</p>
+                    </Card>
+                    <Card className="p-3 bg-white shadow-sm border-0 rounded-xl">
+                        <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-2">
+                            <DollarSign className="h-4 w-4 text-green-500" />
+                        </div>
+                        <p className="text-xl font-bold text-gray-900 text-center">${dailyStats.earnings}</p>
+                        <p className="text-[10px] text-gray-500 text-center">Ganado</p>
+                    </Card>
+                    <Card className="p-3 bg-white shadow-sm border-0 rounded-xl">
+                        <div className="w-8 h-8 rounded-full bg-yellow-100 flex items-center justify-center mx-auto mb-2">
+                            <Star className="h-4 w-4 text-yellow-500" />
+                        </div>
+                        <p className="text-xl font-bold text-gray-900 text-center">4.9</p>
+                        <p className="text-[10px] text-gray-500 text-center">Rating</p>
+                    </Card>
                 </div>
             </div>
 
-            {/* Radar / Content Area - Fills remaining space */}
-            <div className="flex-1 relative overflow-hidden flex flex-col">
-                <Radar serviceType="taxi" isAvailable={isAvailable} />
+            {/* Scrollable Request List - Takes remaining space */}
+            <div className="flex-1 overflow-y-auto px-5 pb-20 min-h-0">
+                {!isAvailable ? (
+                    <Card className="p-6 bg-white shadow-sm border-0 rounded-2xl text-center">
+                        <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
+                            <Zap className="h-8 w-8 text-green-500" />
+                        </div>
+                        <h2 className="text-xl font-bold text-gray-900 mb-2">
+                            Activa tu disponibilidad
+                        </h2>
+                        <p className="text-gray-500 text-sm">
+                            Hay viajes esperando cerca de ti. Conecta para empezar a recibir solicitudes.
+                        </p>
+                    </Card>
+                ) : (
+                    <>
+                        <div className="flex items-center gap-2 mb-3">
+                            <div className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse" />
+                            <p className="font-semibold text-gray-900 text-sm">Viajes cerca de ti</p>
+                        </div>
+                        <Radar serviceType="taxi" isAvailable={isAvailable} />
+                    </>
+                )}
             </div>
         </div>
     );

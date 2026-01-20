@@ -138,27 +138,27 @@ export function MandaditoClientTracking({ requestId, request, driver }: Mandadit
         };
     }, [requestId]);
 
-    // Cancel service handler
+    // Cancel service handler - Uses RPC to properly free driver
     const handleCancelService = async () => {
         setCancelling(true);
         try {
-            const { error } = await supabase
-                .from("service_requests")
-                .update({
-                    status: "cancelled",
-                    cancellation_reason: "Cliente canceló el mandadito",
-                    updated_at: new Date().toISOString()
-                })
-                .eq("id", requestId);
+            const { data, error } = await supabase.rpc('cancel_service_by_client', {
+                p_request_id: requestId,
+                p_reason: 'Cliente canceló el mandadito'
+            });
 
             if (error) throw error;
+
+            if (!data.success) {
+                throw new Error(data.error || 'Error al cancelar');
+            }
 
             toast.success("Servicio cancelado");
             setShowCancelModal(false);
             router.push("/cliente");
         } catch (err: any) {
             console.error("Error cancelling:", err);
-            toast.error("Error al cancelar el servicio");
+            toast.error(err.message || "Error al cancelar el servicio");
         } finally {
             setCancelling(false);
         }

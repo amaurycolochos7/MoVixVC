@@ -96,27 +96,38 @@ export default function ClienteHomePage() {
 
             {/* Main Content */}
             <div className="px-5 -mt-10">
-                {/* Service Cards */}
-                <div className="grid grid-cols-2 gap-4 mb-6">
+                {/* Service Cards - 3 Columns */}
+                <div className="grid grid-cols-3 gap-3 mb-6">
                     {/* Taxi Card */}
                     <Link href="/cliente/taxi">
-                        <div className="bg-white rounded-2xl p-5 shadow-md hover:shadow-lg transition-shadow h-full">
-                            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center mb-4 shadow-md shadow-blue-200">
-                                <Car className="h-6 w-6 text-white" />
+                        <div className="bg-white rounded-2xl p-4 shadow-md hover:shadow-lg transition-shadow h-full flex flex-col items-center">
+                            <div className="w-32 h-32 flex items-center justify-center mb-1">
+                                <img src="/taxi.png" alt="Taxi" className="w-full h-full object-contain" />
                             </div>
-                            <h3 className="font-bold text-gray-900">Taxi</h3>
-                            <p className="text-gray-500 text-xs mt-1">Viaja seguro</p>
+                            <h3 className="font-bold text-gray-900 text-sm text-center">Taxi</h3>
+                            <p className="text-gray-500 text-[10px] text-center">Viaja seguro</p>
                         </div>
                     </Link>
 
                     {/* Mandadito Card */}
                     <Link href="/cliente/mandadito">
-                        <div className="bg-white rounded-2xl p-5 shadow-md hover:shadow-lg transition-shadow h-full">
-                            <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center mb-4 shadow-md shadow-orange-200">
-                                <Bike className="h-6 w-6 text-white" />
+                        <div className="bg-white rounded-2xl p-4 shadow-md hover:shadow-lg transition-shadow h-full flex flex-col items-center">
+                            <div className="w-20 h-20 flex items-center justify-center mb-2">
+                                <img src="/delivery-moto.png" alt="Mandadito" className="w-full h-full object-contain" />
                             </div>
-                            <h3 className="font-bold text-gray-900">Mandadito</h3>
-                            <p className="text-gray-500 text-xs mt-1">Envíos y compras</p>
+                            <h3 className="font-bold text-gray-900 text-sm text-center">Mandadito</h3>
+                            <p className="text-gray-500 text-[10px] text-center">Envíos y compras</p>
+                        </div>
+                    </Link>
+
+                    {/* Moto Ride Card */}
+                    <Link href="/cliente/moto-ride">
+                        <div className="bg-white rounded-2xl p-4 shadow-md hover:shadow-lg transition-shadow h-full flex flex-col items-center">
+                            <div className="w-32 h-32 flex items-center justify-center mb-1">
+                                <img src="/moto-ride.png" alt="Moto Ride" className="w-full h-full object-contain" />
+                            </div>
+                            <h3 className="font-bold text-gray-900 text-sm text-center">Moto Ride</h3>
+                            <p className="text-gray-500 text-[10px] text-center">Rápido $20</p>
                         </div>
                     </Link>
                 </div>
@@ -179,12 +190,16 @@ export default function ClienteHomePage() {
                         <div className="space-y-3">
                             {recentTrips.map((trip) => (
                                 <div key={trip.id} className="bg-white rounded-2xl p-4 shadow-sm flex items-center gap-4">
-                                    <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${trip.service_type === 'taxi'
-                                        ? 'bg-blue-100'
-                                        : 'bg-orange-100'
+                                    <div className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${trip.service_type === 'moto_ride'
+                                        ? 'bg-purple-100'
+                                        : trip.service_type === 'taxi'
+                                            ? 'bg-blue-100'
+                                            : 'bg-orange-100'
                                         }`}>
                                         {trip.service_type === 'taxi' ? (
                                             <Car className={`w-5 h-5 ${trip.status === 'cancelled' ? 'text-red-500' : 'text-blue-600'}`} />
+                                        ) : trip.service_type === 'moto_ride' ? (
+                                            <Bike className={`w-5 h-5 ${trip.status === 'cancelled' ? 'text-red-500' : 'text-purple-600'}`} />
                                         ) : (
                                             <Bike className={`w-5 h-5 ${trip.status === 'cancelled' ? 'text-red-500' : 'text-orange-600'}`} />
                                         )}

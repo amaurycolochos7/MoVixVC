@@ -2,7 +2,7 @@
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, Clock, Mail } from "lucide-react";
+import { AlertTriangle, Clock, MessageCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
@@ -12,6 +12,8 @@ interface AccountPendingProps {
     isRejected?: boolean;
 }
 
+const ADMIN_WHATSAPP = "529618720544"; // +52 961 872 0544
+
 export function AccountPendingMessage({ userName, reason, isRejected }: AccountPendingProps) {
     const router = useRouter();
     const supabase = createClient();
@@ -19,6 +21,13 @@ export function AccountPendingMessage({ userName, reason, isRejected }: AccountP
     const handleSignOut = async () => {
         await supabase.auth.signOut();
         router.push("/login");
+    };
+
+    const handleWhatsApp = () => {
+        const message = isRejected
+            ? `Hola, mi solicitud como conductor fue rechazada. Mi nombre es ${userName || 'usuario'}. ¿Podrían ayudarme?`
+            : `Hola, mi solicitud como conductor lleva más de 48 horas en revisión. Mi nombre es ${userName || 'usuario'}. ¿Podrían revisar mi caso?`;
+        window.open(`https://wa.me/${ADMIN_WHATSAPP}?text=${encodeURIComponent(message)}`, '_blank');
     };
 
     return (
@@ -81,17 +90,31 @@ export function AccountPendingMessage({ userName, reason, isRejected }: AccountP
                         )}
                     </div>
 
-                    {/* Info box */}
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-left">
+                    {/* Info box - WhatsApp notification */}
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-left">
                         <div className="flex gap-3">
-                            <Mail className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                            <div className="text-sm text-blue-900">
-                                <p className="font-medium mb-1">Te notificaremos por email</p>
-                                <p className="text-blue-700">
-                                    Recibirás un correo cuando tu cuenta sea aprobada y puedas empezar a trabajar.
+                            <MessageCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                            <div className="text-sm text-green-900">
+                                <p className="font-medium mb-1">Te contactaremos por WhatsApp</p>
+                                <p className="text-green-700">
+                                    Recibirás un mensaje de WhatsApp cuando tu cuenta sea aprobada.
                                 </p>
                             </div>
                         </div>
+                    </div>
+
+                    {/* WhatsApp contact button */}
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                        <p className="text-sm text-amber-800 mb-3">
+                            ¿Han pasado más de 48 horas? Contáctanos:
+                        </p>
+                        <Button
+                            onClick={handleWhatsApp}
+                            className="w-full bg-green-600 hover:bg-green-700 text-white"
+                        >
+                            <MessageCircle className="w-4 h-4 mr-2" />
+                            Contactar por WhatsApp
+                        </Button>
                     </div>
 
                     {/* Action */}
@@ -104,11 +127,6 @@ export function AccountPendingMessage({ userName, reason, isRejected }: AccountP
                             Cerrar Sesión
                         </Button>
                     </div>
-
-                    {/* Help text */}
-                    <p className="text-xs text-gray-500">
-                        ¿Tienes dudas? Contacta a soporte
-                    </p>
                 </CardContent>
             </Card>
         </div>

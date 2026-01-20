@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { parseSupabaseError } from "@/lib/error-utils";
 
-export type ServiceType = "taxi" | "mandadito";
+export type ServiceType = "taxi" | "mandadito" | "moto_ride";
 
 export interface LocationData {
     address: string;

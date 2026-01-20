@@ -19,6 +19,7 @@ import {
     Car,
     Phone,
     Mail,
+    MessageCircle,
 } from 'lucide-react';
 
 interface KYCSubmission {
@@ -437,12 +438,29 @@ export default function AdminKYCPage() {
                                 </div>
                             )}
 
-                            {/* Approval Date (only for approved) */}
+                            {/* Approval Date + WhatsApp button (only for approved) */}
                             {activeFilter === 'approved' && submission.kyc_reviewed_at && (
-                                <div className="mb-4 p-3 bg-green-50 border-l-4 border-green-400 rounded">
-                                    <p className="text-sm text-green-700">
-                                        ✓ Aprobado: {formatDate(submission.kyc_reviewed_at)}
-                                    </p>
+                                <div className="mb-4 space-y-3">
+                                    <div className="p-3 bg-green-50 border-l-4 border-green-400 rounded">
+                                        <p className="text-sm text-green-700">
+                                            ✓ Aprobado: {formatDate(submission.kyc_reviewed_at)}
+                                        </p>
+                                    </div>
+                                    {/* WhatsApp Notification Button */}
+                                    {submission.user.phone && (
+                                        <button
+                                            onClick={() => {
+                                                const phone = submission.user.phone?.replace(/\D/g, '');
+                                                const roleText = submission.user.role === 'taxi' ? 'chofer de taxi' : 'repartidor de Mandadito';
+                                                const message = `¡Hola ${submission.user.full_name}! 🎉\n\nTu solicitud para trabajar como ${roleText} en MoVix ha sido APROBADA.\n\nYa puedes iniciar sesión en la app y empezar a recibir servicios.\n\n¡Bienvenido al equipo!`;
+                                                window.open(`https://wa.me/52${phone}?text=${encodeURIComponent(message)}`, '_blank');
+                                            }}
+                                            className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-lg font-medium transition-colors shadow-sm"
+                                        >
+                                            <MessageCircle className="w-4 h-4" />
+                                            Notificar por WhatsApp
+                                        </button>
+                                    )}
                                 </div>
                             )}
 

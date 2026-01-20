@@ -89,6 +89,12 @@ export default function RegistroPage() {
             return;
         }
 
+        // Phone validation for all users
+        if (!formData.phone || formData.phone.length !== 10) {
+            toast.error("El teléfono debe tener exactamente 10 dígitos");
+            return;
+        }
+
         // Validations for drivers
         if (formData.role !== "cliente") {
             if (!formData.phone) {
@@ -253,18 +259,29 @@ export default function RegistroPage() {
                                 </div>
 
                                 <div className="space-y-2">
-                                    <Label htmlFor="phone">Teléfono (opcional)</Label>
+                                    <Label htmlFor="phone">Teléfono</Label>
                                     <div className="relative">
                                         <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                                         <Input
                                             id="phone"
                                             type="tel"
-                                            placeholder="55 1234 5678"
+                                            placeholder="10 dígitos"
                                             value={formData.phone}
-                                            onChange={(e) => handleChange("phone", e.target.value)}
+                                            onChange={(e) => {
+                                                // Only allow numbers
+                                                const value = e.target.value.replace(/\D/g, '').slice(0, 10);
+                                                handleChange("phone", value);
+                                            }}
                                             className="pl-10"
+                                            required
+                                            maxLength={10}
+                                            pattern="[0-9]{10}"
+                                            inputMode="numeric"
                                         />
                                     </div>
+                                    {formData.phone && formData.phone.length < 10 && (
+                                        <p className="text-xs text-orange-500">{10 - formData.phone.length} dígitos restantes</p>
+                                    )}
                                 </div>
 
                                 <div className="space-y-2">

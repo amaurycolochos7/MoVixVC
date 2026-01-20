@@ -64,7 +64,7 @@ export default function TaxiPerfilPage() {
     };
 
     return (
-        <div className="space-y-6">
+        <div className="p-6 space-y-6">
             <h1 className="text-xl font-bold">Perfil Conductor</h1>
 
             {/* KYC Status Badge */}

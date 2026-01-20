@@ -101,7 +101,13 @@ export function Radar({ serviceType, isAvailable }: RadarProps) {
                 .order("created_at", { ascending: false });
 
             if (serviceType) {
-                query = query.eq("service_type", serviceType);
+                // Mandadito drivers see both 'mandadito' and 'moto_ride'
+                // Taxi drivers only see 'taxi'
+                if (serviceType === 'mandadito') {
+                    query = query.in("service_type", ["mandadito", "moto_ride"]);
+                } else {
+                    query = query.eq("service_type", serviceType);
+                }
             }
 
             const { data, error } = await query;

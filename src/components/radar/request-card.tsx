@@ -38,9 +38,11 @@ export function RequestCard({ request, driverLocation, onCardClick, onOffer, onA
     const price = request.estimated_price || (request.service_type === "mandadito" ? 25 : 35);
 
     // Colores actualizados - más suaves
-    const serviceColor = request.service_type === 'mandadito'
-        ? 'from-blue-500 to-blue-600'
-        : 'from-indigo-500 to-indigo-600';
+    const serviceColor = request.service_type === 'moto_ride'
+        ? 'from-purple-500 to-purple-600'
+        : request.service_type === 'mandadito'
+            ? 'from-blue-500 to-blue-600'
+            : 'from-indigo-500 to-indigo-600';
 
     return (
         <Card
@@ -54,7 +56,7 @@ export function RequestCard({ request, driverLocation, onCardClick, onOffer, onA
                     <div className="flex items-center gap-1.5">
                         <CheckCircle className="w-4 h-4" />
                         <span className="text-sm font-bold capitalize">
-                            {request.service_type === 'taxi' ? 'Taxi' : 'Mandadito'}
+                            {request.service_type === 'taxi' ? 'Taxi' : request.service_type === 'moto_ride' ? 'Moto Ride' : 'Mandadito'}
                         </span>
                     </div>
 
@@ -91,9 +93,11 @@ export function RequestCard({ request, driverLocation, onCardClick, onOffer, onA
             <div className="bg-white px-3 py-2 flex gap-2 justify-center">
                 <Button
                     variant="outline"
-                    className={`flex-1 max-w-[120px] ${request.service_type === 'mandadito'
-                        ? 'border-blue-300 text-blue-600 hover:bg-blue-50'
-                        : 'border-indigo-300 text-indigo-600 hover:bg-indigo-50'
+                    className={`flex-1 max-w-[120px] ${request.service_type === 'moto_ride'
+                        ? 'border-purple-300 text-purple-600 hover:bg-purple-50'
+                        : request.service_type === 'mandadito'
+                            ? 'border-blue-300 text-blue-600 hover:bg-blue-50'
+                            : 'border-indigo-300 text-indigo-600 hover:bg-indigo-50'
                         } rounded-lg h-8 font-medium text-xs`}
                     onClick={(e: React.MouseEvent) => {
                         e.stopPropagation();
@@ -104,9 +108,11 @@ export function RequestCard({ request, driverLocation, onCardClick, onOffer, onA
                     Ofertar
                 </Button>
                 <Button
-                    className={`flex-1 max-w-[120px] ${request.service_type === 'mandadito'
-                        ? 'bg-blue-600 hover:bg-blue-700'
-                        : 'bg-indigo-500 hover:bg-indigo-600'
+                    className={`flex-1 max-w-[120px] ${request.service_type === 'moto_ride'
+                        ? 'bg-purple-600 hover:bg-purple-700'
+                        : request.service_type === 'mandadito'
+                            ? 'bg-blue-600 hover:bg-blue-700'
+                            : 'bg-indigo-500 hover:bg-indigo-600'
                         } text-white font-semibold rounded-lg h-8 text-xs`}
                     onClick={(e: React.MouseEvent) => {
                         e.stopPropagation();
