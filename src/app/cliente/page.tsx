@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Car, Bike, Clock, Loader2, MapPin, ChevronRight, ShoppingBag, Package } from "lucide-react";
+import { Car, Bike, Clock, Loader2, MapPin, ChevronRight, ShoppingBag, Package, AlertCircle } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/contexts/auth-context";
@@ -98,36 +98,51 @@ export default function ClienteHomePage() {
             <div className="px-5 -mt-10">
                 {/* Service Cards - 3 Columns */}
                 <div className="grid grid-cols-3 gap-3 mb-6">
-                    {/* Taxi Card */}
-                    <Link href="/cliente/taxi">
-                        <div className="bg-white rounded-2xl p-4 shadow-md hover:shadow-lg transition-shadow h-full flex flex-col items-center">
-                            <div className="w-32 h-32 flex items-center justify-center mb-1">
-                                <img src="/taxi.png" alt="Taxi" className="w-full h-full object-contain" />
+                    {/* Taxi Card - PAUSADO */}
+                    <div className="relative">
+                        <div className="bg-white rounded-2xl p-3 shadow-md opacity-60 grayscale cursor-not-allowed">
+                            <div className="h-20 flex items-center justify-center mb-2">
+                                <img src="/taxi.png" alt="Taxi" className="h-full object-contain" />
                             </div>
-                            <h3 className="font-bold text-gray-900 text-sm text-center">Taxi</h3>
-                            <p className="text-gray-500 text-[10px] text-center">Viaja seguro</p>
+                            <div className="text-center">
+                                <h3 className="font-bold text-gray-900 text-sm">Taxi</h3>
+                                <p className="text-amber-600 text-[10px] flex items-center justify-center gap-0.5">
+                                    <AlertCircle className="w-2.5 h-2.5" />
+                                    Pausado
+                                </p>
+                            </div>
                         </div>
-                    </Link>
+                        {/* Tooltip on tap/hover */}
+                        <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity bg-black/70 rounded-2xl">
+                            <p className="text-white text-[9px] text-center px-2 leading-tight">
+                                En espera de autorización local
+                            </p>
+                        </div>
+                    </div>
 
                     {/* Mandadito Card */}
                     <Link href="/cliente/mandadito">
-                        <div className="bg-white rounded-2xl p-4 shadow-md hover:shadow-lg transition-shadow h-full flex flex-col items-center">
-                            <div className="w-20 h-20 flex items-center justify-center mb-2">
-                                <img src="/delivery-moto.png" alt="Mandadito" className="w-full h-full object-contain" />
+                        <div className="bg-white rounded-2xl p-3 shadow-md hover:shadow-lg transition-shadow">
+                            <div className="h-20 flex items-center justify-center mb-2">
+                                <img src="/delivery-moto.png" alt="Mandadito" className="h-full object-contain" />
                             </div>
-                            <h3 className="font-bold text-gray-900 text-sm text-center">Mandadito</h3>
-                            <p className="text-gray-500 text-[10px] text-center">Envíos y compras</p>
+                            <div className="text-center">
+                                <h3 className="font-bold text-gray-900 text-sm">Mandadito</h3>
+                                <p className="text-gray-500 text-[10px]">Envíos y compras</p>
+                            </div>
                         </div>
                     </Link>
 
                     {/* Moto Ride Card */}
                     <Link href="/cliente/moto-ride">
-                        <div className="bg-white rounded-2xl p-4 shadow-md hover:shadow-lg transition-shadow h-full flex flex-col items-center">
-                            <div className="w-32 h-32 flex items-center justify-center mb-1">
-                                <img src="/moto-ride.png" alt="Moto Ride" className="w-full h-full object-contain" />
+                        <div className="bg-white rounded-2xl p-3 shadow-md hover:shadow-lg transition-shadow">
+                            <div className="h-20 flex items-center justify-center mb-2">
+                                <img src="/moto-ride.png" alt="Moto Ride" className="h-full object-contain" />
                             </div>
-                            <h3 className="font-bold text-gray-900 text-sm text-center">Moto Ride</h3>
-                            <p className="text-gray-500 text-[10px] text-center">Rápido $20</p>
+                            <div className="text-center">
+                                <h3 className="font-bold text-gray-900 text-sm">Moto Ride</h3>
+                                <p className="text-gray-500 text-[10px]">Viaje en moto</p>
+                            </div>
                         </div>
                     </Link>
                 </div>
@@ -148,12 +163,13 @@ export default function ClienteHomePage() {
                             </div>
                             <span className="text-xs text-gray-600 text-center">Envíos</span>
                         </Link>
-                        <Link href="/cliente/taxi" className="flex flex-col items-center gap-2">
-                            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                                <Car className="h-5 w-5 text-blue-600" />
+                        {/* Viajes - Pausado */}
+                        <div className="flex flex-col items-center gap-2 opacity-50 cursor-not-allowed">
+                            <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center">
+                                <Car className="h-5 w-5 text-gray-400" />
                             </div>
-                            <span className="text-xs text-gray-600 text-center">Viajes</span>
-                        </Link>
+                            <span className="text-xs text-gray-400 text-center">Viajes</span>
+                        </div>
                         <Link href="/cliente/historial" className="flex flex-col items-center gap-2">
                             <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center">
                                 <Clock className="h-5 w-5 text-amber-600" />

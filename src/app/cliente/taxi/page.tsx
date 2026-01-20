@@ -389,7 +389,7 @@ export default function TaxiWizardPage() {
                             <div className="w-0.5 flex-1 bg-gray-200 my-1 min-h-[3rem]" />
                         </div>
                         <div className="flex-1 pb-4">
-                            <p className="text-xs text-gray-500 font-medium mb-1">¿Dónde te recogemos?</p>
+                            <p className="text-xs text-gray-500 font-medium mb-1">¿Cuál es tu ubicación?</p>
                             {originCoords || locationState.status === "success" ? (
                                 <div className="space-y-3">
                                     <div>

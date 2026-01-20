@@ -307,15 +307,16 @@ export default function RegistroPage() {
                                                     </div>
                                                 </div>
                                             </SelectItem>
-                                            <SelectItem value="taxi" className="py-3 cursor-pointer hover:bg-green-50">
+                                            {/* Taxi - Registro pausado */}
+                                            <div className="py-3 px-2 cursor-not-allowed opacity-60 bg-gray-50 rounded">
                                                 <div className="flex items-center gap-3">
-                                                    <Car className="w-5 h-5 text-secondary" />
+                                                    <Car className="w-5 h-5 text-gray-400" />
                                                     <div>
-                                                        <div className="font-medium text-gray-900">Soy Chofer de Taxi</div>
-                                                        <div className="text-xs text-gray-500">Recibir solicitudes de viaje</div>
+                                                        <div className="font-medium text-gray-500">Soy Chofer de Taxi</div>
+                                                        <div className="text-xs text-amber-600">⚠️ Registro no disponible</div>
                                                     </div>
                                                 </div>
-                                            </SelectItem>
+                                            </div>
                                             <SelectItem value="mandadito" className="py-3 cursor-pointer hover:bg-orange-50">
                                                 <div className="flex items-center gap-3">
                                                     <Package className="w-5 h-5 text-orange-500" />

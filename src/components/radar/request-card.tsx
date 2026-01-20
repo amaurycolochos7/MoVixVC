@@ -39,7 +39,7 @@ export function RequestCard({ request, driverLocation, onCardClick, onOffer, onA
 
     // Colores actualizados - más suaves
     const serviceColor = request.service_type === 'moto_ride'
-        ? 'from-purple-500 to-purple-600'
+        ? 'from-orange-500 to-orange-600'
         : request.service_type === 'mandadito'
             ? 'from-blue-500 to-blue-600'
             : 'from-indigo-500 to-indigo-600';
@@ -94,7 +94,7 @@ export function RequestCard({ request, driverLocation, onCardClick, onOffer, onA
                 <Button
                     variant="outline"
                     className={`flex-1 max-w-[120px] ${request.service_type === 'moto_ride'
-                        ? 'border-purple-300 text-purple-600 hover:bg-purple-50'
+                        ? 'border-orange-300 text-orange-600 hover:bg-orange-50'
                         : request.service_type === 'mandadito'
                             ? 'border-blue-300 text-blue-600 hover:bg-blue-50'
                             : 'border-indigo-300 text-indigo-600 hover:bg-indigo-50'
@@ -109,7 +109,7 @@ export function RequestCard({ request, driverLocation, onCardClick, onOffer, onA
                 </Button>
                 <Button
                     className={`flex-1 max-w-[120px] ${request.service_type === 'moto_ride'
-                        ? 'bg-purple-600 hover:bg-purple-700'
+                        ? 'bg-orange-600 hover:bg-orange-700'
                         : request.service_type === 'mandadito'
                             ? 'bg-blue-600 hover:bg-blue-700'
                             : 'bg-indigo-500 hover:bg-indigo-600'

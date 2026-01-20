@@ -52,6 +52,12 @@ interface Driver {
     car_plate?: string;
 }
 
+interface Vehicle {
+    brand: string;
+    model: string;
+    color: string;
+}
+
 export default function ClienteTrackingPage() {
     const params = useParams();
     const router = useRouter();
@@ -61,6 +67,7 @@ export default function ClienteTrackingPage() {
 
     const [request, setRequest] = useState<ServiceRequest | null>(null);
     const [driver, setDriver] = useState<Driver | null>(null);
+    const [vehicle, setVehicle] = useState<Vehicle | null>(null);
     const [loading, setLoading] = useState(true);
     const [showRatingModal, setShowRatingModal] = useState(false);
     const [hasRated, setHasRated] = useState(false);
@@ -210,11 +217,19 @@ export default function ClienteTrackingPage() {
                     .eq("id", data.assigned_driver_id)
                     .single();
 
-                // Mock car info since it's not in basic user table in this schema yet
+                // Fetch vehicle info from driver_vehicles table
+                const { data: vehicleData } = await supabase
+                    .from("driver_vehicles")
+                    .select("brand, model, color")
+                    .eq("user_id", data.assigned_driver_id)
+                    .single();
+
+                if (vehicleData) setVehicle(vehicleData);
+
                 const fullDriverData: Driver = {
                     ...(driverData as any),
-                    car_model: "Nissan Versa",
-                    car_plate: "ABC-123"
+                    car_model: vehicleData ? `${vehicleData.brand} ${vehicleData.model}` : "Vehículo",
+                    car_plate: vehicleData?.color || ""
                 }
 
                 if (driverData) setDriver(fullDriverData);
@@ -522,14 +537,15 @@ export default function ClienteTrackingPage() {
 
     const restrictions = getCancellationRestrictions();
 
-    // Render Mandadito-specific tracking ONLY when driver is assigned (not pending/negotiating)
+    // Render Mandadito/MotoRide-specific tracking ONLY when driver is assigned (not pending/negotiating)
     // During pending and negotiating, we use the main UI which has the OfferModal
-    if (request.service_type === 'mandadito' && request.status !== 'pending' && request.status !== 'negotiating') {
+    if ((request.service_type === 'mandadito' || request.service_type === 'moto_ride') && request.status !== 'pending' && request.status !== 'negotiating') {
         return (
             <MandaditoClientTracking
                 requestId={requestId}
                 request={request}
                 driver={driver}
+                vehicle={vehicle}
             />
         );
     }

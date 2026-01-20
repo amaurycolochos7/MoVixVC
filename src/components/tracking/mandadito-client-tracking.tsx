@@ -34,15 +34,23 @@ interface MandaditoClientTrackingProps {
     requestId: string;
     request: any;
     driver: any;
+    vehicle?: {
+        brand: string;
+        model: string;
+        color: string;
+    } | null;
 }
 
-export function MandaditoClientTracking({ requestId, request, driver }: MandaditoClientTrackingProps) {
+export function MandaditoClientTracking({ requestId, request, driver, vehicle }: MandaditoClientTrackingProps) {
     const supabase = createClient();
     const router = useRouter();
     const [stops, setStops] = useState<Stop[]>([]);
     const [loading, setLoading] = useState(true);
     const [showCancelModal, setShowCancelModal] = useState(false);
     const [cancelling, setCancelling] = useState(false);
+
+    // Determine if this is a moto_ride service
+    const isMotoRide = request.service_type === 'moto_ride';
 
     // Fetch stops and items
     const fetchStopsAndItems = async () => {
@@ -204,8 +212,12 @@ export function MandaditoClientTracking({ requestId, request, driver }: Mandadit
         stop.items.some(item => item.is_purchased)
     );
 
-    // Can cancel only if in 'assigned' status AND no products purchased yet
-    const canCancel = request.status === 'assigned' && !anyProductsPurchased;
+    // Can cancel only if:
+    // - For mandadito: in 'assigned' status AND no products purchased yet
+    // - For moto_ride: in 'assigned' status only (before in_progress)
+    const canCancel = isMotoRide
+        ? request.status === 'assigned'
+        : (request.status === 'assigned' && !anyProductsPurchased);
 
     // Show delivery view when in_progress - with PIN and real-time map
     if (request.status === 'in_progress') {
@@ -240,9 +252,17 @@ export function MandaditoClientTracking({ requestId, request, driver }: Mandadit
                         </div>
                         <div>
                             <h1 className="font-bold text-white">
-                                {request.mandadito_type === 'shopping' ? 'Compras' : 'Mandadito'}
+                                {isMotoRide ? 'Moto Ride' : (request.mandadito_type === 'shopping' ? 'Compras' : 'Mandadito')}
                             </h1>
-                            <p className="text-orange-100 text-xs">{driver?.full_name || 'Mandadito asignado'}</p>
+                            <p className="text-orange-100 text-xs">
+                                {driver?.full_name || (isMotoRide ? 'Conductor asignado' : 'Mandadito asignado')}
+                            </p>
+                            {/* Show vehicle info for moto_ride */}
+                            {isMotoRide && vehicle && (
+                                <p className="text-white/80 text-xs mt-0.5">
+                                    🏍️ {vehicle.brand} {vehicle.model} • {vehicle.color}
+                                </p>
+                            )}
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -419,21 +439,30 @@ function MandaditoDeliveryView({
     grandTotal,
     clientLocation
 }: MandaditoDeliveryViewProps) {
+    const isMotoRide = request.service_type === 'moto_ride';
+
     return (
         <div className="h-screen flex flex-col bg-white">
-            {/* Header */}
-            <div className="bg-gradient-to-r from-blue-600 to-blue-500 px-4 py-3 shrink-0 z-10">
+            {/* Header - Orange for MotoRide, Blue for Mandadito */}
+            <div className={`px-4 py-3 shrink-0 z-10 ${isMotoRide
+                ? 'bg-gradient-to-r from-orange-600 to-orange-500'
+                : 'bg-gradient-to-r from-blue-600 to-blue-500'
+                }`}>
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <Navigation className="h-6 w-6 text-white animate-pulse" />
                         <div>
-                            <h1 className="font-bold text-lg">En camino a tu domicilio</h1>
-                            <p className="text-blue-100 text-sm">{driver?.full_name || 'Mandadito'}</p>
+                            <h1 className="font-bold text-lg text-white">
+                                {isMotoRide ? 'En camino a tu destino' : 'En camino a tu domicilio'}
+                            </h1>
+                            <p className={`text-sm ${isMotoRide ? 'text-orange-100' : 'text-blue-100'}`}>
+                                {driver?.full_name || (isMotoRide ? 'Conductor' : 'Mandadito')}
+                            </p>
                         </div>
                     </div>
                     <Button
                         size="sm"
-                        className="bg-white text-blue-600 hover:bg-blue-50"
+                        className={`bg-white ${isMotoRide ? 'text-orange-600 hover:bg-orange-50' : 'text-blue-600 hover:bg-blue-50'}`}
                         onClick={() => window.open(`tel:${driver?.phone}`)}
                     >
                         <Phone className="h-4 w-4" />
@@ -441,7 +470,7 @@ function MandaditoDeliveryView({
                 </div>
             </div>
 
-            {/* Map - ClientTrackingMap handles driver location internally */}
+            {/* Map */}
             <div className="flex-1 relative">
                 <ClientTrackingMap
                     serviceId={requestId}
@@ -454,38 +483,53 @@ function MandaditoDeliveryView({
 
             {/* Bottom Sheet */}
             <div className="bg-white/95 backdrop-blur-sm p-4 border-t border-gray-200 shrink-0 z-10 shadow-lg" style={{ marginBottom: '64px' }}>
-                {/* PIN Display - Compact */}
-                <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-xl p-3 mb-3">
+                {/* PIN Display */}
+                <div className={`rounded-xl p-3 mb-3 ${isMotoRide
+                    ? 'bg-gradient-to-r from-orange-500 to-orange-600'
+                    : 'bg-gradient-to-r from-orange-500 to-orange-600'
+                    }`}>
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-orange-100 text-xs">Tu PIN de entrega</p>
+                            <p className="text-orange-100 text-xs">
+                                {isMotoRide ? 'PIN de confirmación' : 'Tu PIN de entrega'}
+                            </p>
                             <p className="text-white font-bold text-2xl tracking-widest">
                                 {request.boarding_pin || '----'}
                             </p>
                         </div>
                         <div className="text-orange-100 text-xs text-right max-w-[120px]">
-                            Proporciona este PIN al mandadito
+                            {isMotoRide
+                                ? 'Proporciona este PIN al conductor'
+                                : 'Proporciona este PIN al mandadito'
+                            }
                         </div>
                     </div>
                 </div>
 
-                {/* Summary Card */}
-                <div className="bg-gray-50 rounded-xl p-3">
-                    <div className="grid grid-cols-3 gap-2 text-center">
-                        <div>
-                            <p className="text-xs text-gray-600 mb-0.5">Servicio</p>
-                            <p className="text-gray-900 font-semibold">${serviceFee.toFixed(2)}</p>
-                        </div>
-                        <div className="border-x border-gray-300">
-                            <p className="text-xs text-gray-600 mb-0.5">Compras</p>
-                            <p className="text-gray-900 font-semibold">${totalExpenses.toFixed(2)}</p>
-                        </div>
-                        <div>
-                            <p className="text-xs text-gray-600 mb-0.5">Total</p>
-                            <p className="text-orange-400 font-bold text-lg">${grandTotal.toFixed(2)}</p>
+                {/* Summary Card - Simplified for MotoRide */}
+                {isMotoRide ? (
+                    <div className="bg-orange-50 rounded-xl p-4 text-center">
+                        <p className="text-xs text-gray-600 mb-1">Tarifa del viaje</p>
+                        <p className="text-orange-500 font-bold text-2xl">${serviceFee.toFixed(2)}</p>
+                    </div>
+                ) : (
+                    <div className="bg-gray-50 rounded-xl p-3">
+                        <div className="grid grid-cols-3 gap-2 text-center">
+                            <div>
+                                <p className="text-xs text-gray-600 mb-0.5">Servicio</p>
+                                <p className="text-gray-900 font-semibold">${serviceFee.toFixed(2)}</p>
+                            </div>
+                            <div className="border-x border-gray-300">
+                                <p className="text-xs text-gray-600 mb-0.5">Compras</p>
+                                <p className="text-gray-900 font-semibold">${totalExpenses.toFixed(2)}</p>
+                            </div>
+                            <div>
+                                <p className="text-xs text-gray-600 mb-0.5">Total</p>
+                                <p className="text-orange-400 font-bold text-lg">${grandTotal.toFixed(2)}</p>
+                            </div>
                         </div>
                     </div>
-                </div>
+                )}
             </div>
         </div>
     );

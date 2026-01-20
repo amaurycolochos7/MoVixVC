@@ -162,12 +162,12 @@ export default function TaxiWizardPage() {
     useEffect(() => {
         if (!createdRequestId || requestExpired) return;
 
-        setCountdown(40);
+        setCountdown(70);
         const startTime = Date.now();
 
         const timer = setInterval(() => {
             const elapsed = Math.floor((Date.now() - startTime) / 1000);
-            const remaining = Math.max(0, 40 - elapsed);
+            const remaining = Math.max(0, 70 - elapsed);
             setCountdown(remaining);
 
             if (remaining <= 0) {
@@ -184,7 +184,7 @@ export default function TaxiWizardPage() {
         setCreatedRequestId(null);
         setOffers([]);
         setRequestExpired(false);
-        setCountdown(40);
+        setCountdown(70);
     };
 
     const handleAcceptOffer = async (offerId: string, driverId: string, offeredPrice: number) => {
@@ -268,18 +268,40 @@ export default function TaxiWizardPage() {
     // Request expired screen
     if (createdRequestId && requestExpired) {
         return (
-            <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6 text-center">
-                <div className="w-20 h-20 rounded-full bg-red-100 flex items-center justify-center mb-6">
-                    <Timer className="w-10 h-10 text-red-500" />
+            <div className="h-screen overflow-hidden bg-gradient-to-br from-orange-500 via-orange-400 to-amber-400 flex flex-col">
+                {/* Top section */}
+                <div className="pt-14 pb-4 text-white text-center flex-shrink-0">
+                    <div className="w-20 h-20 mx-auto mb-3 rounded-full bg-white flex items-center justify-center shadow-xl">
+                        <Timer className="w-10 h-10 text-red-500" />
+                    </div>
+                    <h2 className="text-2xl font-bold">Tiempo agotado</h2>
+                    <p className="text-white/80 text-sm mt-1">La solicitud ha expirado</p>
                 </div>
-                <h2 className="text-xl font-bold text-gray-900 mb-2">Solicitud Expirada</h2>
-                <p className="text-gray-500 mb-8">Ningún conductor aceptó en el tiempo límite</p>
-                <Button onClick={handleTryAgain} className="w-full max-w-xs h-12 bg-blue-500 hover:bg-blue-600">
-                    Solicitar de nuevo
-                </Button>
-                <button onClick={() => router.push("/cliente")} className="mt-4 text-gray-500 text-sm">
-                    Volver al inicio
-                </button>
+
+                {/* Card section */}
+                <div className="flex-1 flex flex-col items-center justify-center px-5">
+                    <div className="bg-white rounded-3xl p-6 shadow-2xl w-full max-w-sm text-center">
+                        <div className="w-14 h-14 mx-auto mb-3 rounded-full bg-red-100 flex items-center justify-center">
+                            <X className="w-7 h-7 text-red-500" />
+                        </div>
+                        <h3 className="text-lg font-bold text-gray-900 mb-1">Sin respuesta</h3>
+                        <p className="text-gray-500 text-sm mb-5">Ningún conductor aceptó en el tiempo límite</p>
+
+                        <Button
+                            onClick={handleTryAgain}
+                            className="w-full h-12 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 rounded-xl font-bold shadow-lg"
+                        >
+                            Solicitar de nuevo
+                        </Button>
+
+                        <button
+                            onClick={() => router.push("/cliente")}
+                            className="mt-4 text-gray-400 text-sm font-medium hover:text-gray-600"
+                        >
+                            Volver al inicio
+                        </button>
+                    </div>
+                </div>
             </div>
         );
     }
@@ -287,49 +309,50 @@ export default function TaxiWizardPage() {
     // Waiting for offers screen
     if (createdRequestId) {
         return (
-            <div className="min-h-screen bg-white">
-                {/* Header */}
-                <div className="bg-gradient-to-r from-purple-500 to-purple-600 px-6 pt-12 pb-8 text-white text-center">
-                    <div className="relative w-20 h-20 mx-auto mb-4">
-                        <div className="w-20 h-20 rounded-full bg-white/20 flex items-center justify-center">
-                            <Car className="w-10 h-10 text-white" />
+            <div className="h-screen overflow-hidden bg-gradient-to-b from-orange-500 to-amber-400 flex flex-col">
+                {/* Header - Compact */}
+                <div className="px-4 pt-10 pb-6 text-white text-center flex-shrink-0">
+                    <div className="relative w-20 h-20 mx-auto mb-3">
+                        <div className="w-20 h-20 rounded-full bg-white flex items-center justify-center shadow-xl">
+                            <img src="/moto-ride.png" alt="Moto Ride" className="w-14 h-14 object-contain" />
                         </div>
-                        <div className="absolute inset-0 rounded-full border-2 border-white/30 animate-ping" />
+                        <div className="absolute inset-0 rounded-full border-4 border-white/40 animate-ping" />
                     </div>
                     <h2 className="text-xl font-bold">
-                        {offers.length > 0 ? "Ofertas recibidas" : "Buscando conductores..."}
+                        {offers.length > 0 ? "¡Ofertas recibidas!" : "Buscando conductores..."}
                     </h2>
-                    <p className="text-white/80 text-sm mt-1">
-                        {offers.length > 0 ? `${offers.length} conductor(es) disponible(s)` : "Notificando a taxis cercanos"}
+                    <p className="text-white/80 text-xs mt-1">
+                        {offers.length > 0 ? `${offers.length} conductor(es) disponible(s)` : "Notificando a motos cercanas"}
                     </p>
-
                     {/* Countdown */}
-                    <div className={`mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-full ${countdown <= 10 ? 'bg-red-500' : 'bg-white/20'}`}>
+                    <div className={`mt-3 inline-flex items-center gap-2 px-4 py-2 rounded-full font-bold text-base ${countdown <= 15 ? 'bg-red-500' : 'bg-white/25'}`}>
                         <Timer className="w-4 h-4" />
-                        <span className="font-bold text-lg">{countdown}s</span>
+                        <span>{countdown}s</span>
                     </div>
                 </div>
 
-                <div className="p-4">
-                    {/* Offers List */}
+                {/* Content - Compact */}
+                <div className="flex-1 bg-gray-50 rounded-t-3xl px-4 pt-4 pb-20 flex flex-col">
                     {offers.length > 0 ? (
-                        <div className="space-y-3 mb-6">
+                        <div className="space-y-2 flex-1 overflow-y-auto">
                             {offers.map((offer) => (
-                                <div key={offer.id} className="bg-white rounded-2xl p-4 border-2 border-purple-100 shadow-sm">
-                                    <div className="flex items-center justify-between mb-3">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center">
-                                                <User className="w-6 h-6 text-gray-500" />
+                                <div key={offer.id} className="bg-white rounded-xl p-3 border border-orange-100 shadow-sm">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center">
+                                                <User className="w-5 h-5 text-white" />
                                             </div>
                                             <div>
-                                                <p className="font-semibold text-gray-900">{offer.driver?.full_name || "Conductor"}</p>
-                                                <p className="text-xs text-gray-500">Conductor verificado</p>
+                                                <p className="font-bold text-gray-900 text-sm">{offer.driver?.full_name || "Conductor"}</p>
+                                                <p className="text-[10px] text-emerald-600 font-medium flex items-center gap-1">
+                                                    <CheckCircle2 className="w-2.5 h-2.5" /> Verificado
+                                                </p>
                                             </div>
                                         </div>
-                                        <p className="text-2xl font-bold text-purple-600">${offer.offered_price}</p>
+                                        <p className="text-2xl font-black text-orange-500">${offer.offered_price}</p>
                                     </div>
                                     <Button
-                                        className="w-full h-12 bg-purple-500 hover:bg-purple-600"
+                                        className="w-full h-10 bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg font-bold text-sm"
                                         onClick={() => handleAcceptOffer(offer.id, offer.driver_id, offer.offered_price)}
                                         disabled={acceptingOffer === offer.id}
                                     >
@@ -339,21 +362,26 @@ export default function TaxiWizardPage() {
                             ))}
                         </div>
                     ) : (
-                        <div className="text-center py-12">
-                            <Loader2 className="w-8 h-8 animate-spin mx-auto text-purple-500 mb-3" />
-                            <p className="text-gray-500">Esperando ofertas de conductores...</p>
+                        <div className="text-center pt-2 pb-4">
+                            <div className="w-12 h-12 mx-auto mb-2 rounded-full bg-orange-100 flex items-center justify-center">
+                                <Loader2 className="w-6 h-6 animate-spin text-orange-500" />
+                            </div>
+                            <p className="text-gray-600 font-medium text-sm">Esperando ofertas...</p>
+                            <p className="text-gray-400 text-xs">Esto puede tardar unos segundos</p>
                         </div>
                     )}
 
-                    {/* Destination reminder */}
-                    <div className="bg-gray-50 rounded-xl p-4 mb-4">
-                        <p className="text-xs text-gray-500 mb-1">Destino</p>
-                        <p className="font-medium text-gray-900">{destinationText}</p>
+                    {/* Destination */}
+                    <div className="bg-white rounded-xl p-3 shadow-sm border border-gray-100 mt-2">
+                        <p className="text-[10px] text-gray-400 font-semibold uppercase">Tu destino</p>
+                        <p className="font-bold text-gray-900 text-sm">{destinationText}</p>
                     </div>
+                </div>
 
-                    {/* Cancel button */}
+                {/* Fixed Cancel button */}
+                <div className="fixed bottom-16 left-0 right-0 p-4 bg-white/95 backdrop-blur-sm border-t border-gray-100">
                     <button
-                        className="w-full py-3 text-red-500 font-medium"
+                        className="w-full py-3 text-red-500 font-bold rounded-xl border-2 border-red-200 hover:bg-red-50 transition-colors"
                         onClick={async () => {
                             await supabase.from("service_requests").update({ status: "cancelled" }).eq("id", createdRequestId);
                             setCreatedRequestId(null);
@@ -370,34 +398,44 @@ export default function TaxiWizardPage() {
 
     // Main form
     return (
-        <div className="min-h-screen bg-gray-50 pb-32">
-            {/* Header */}
-            <div className="bg-white px-5 pt-12 pb-6 shadow-sm">
-                <button onClick={() => router.back()} className="flex items-center gap-2 text-gray-500 mb-4">
-                    <ArrowLeft className="h-5 w-5" />
+        <div className="h-screen overflow-hidden bg-gradient-to-b from-gray-50 to-gray-100 flex flex-col">
+            {/* Header with Gradient - Compact */}
+            <div className="bg-gradient-to-br from-orange-500 via-orange-400 to-amber-400 px-4 pt-10 pb-12 rounded-b-[2rem] flex-shrink-0">
+                <button onClick={() => router.back()} className="flex items-center gap-1 text-white/80 hover:text-white mb-2 transition-colors">
+                    <ArrowLeft className="h-4 w-4" />
+                    <span className="text-xs font-medium">Volver</span>
                 </button>
-                <h1 className="text-xl font-bold text-gray-900">Solicitar Moto Ride</h1>
+                <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center overflow-hidden shadow-lg">
+                        <img src="/moto-ride.png" alt="Moto Ride" className="w-10 h-10 object-contain" />
+                    </div>
+                    <div>
+                        <h1 className="text-xl font-bold text-white">Moto Ride</h1>
+                        <p className="text-white/80 text-xs">Viaje rápido y económico</p>
+                    </div>
+                </div>
             </div>
 
-            <div className="p-4 space-y-4">
+            {/* Content - Compact */}
+            <div className="px-4 -mt-6 flex-1 flex flex-col gap-3">
                 {/* Route Card */}
-                <div className="bg-white rounded-2xl p-5 shadow-sm">
+                <div className="bg-white rounded-2xl p-4 shadow-lg shadow-gray-200/50 border border-gray-100">
                     {/* Origin */}
                     <div className="flex items-start gap-3">
-                        <div className="flex flex-col items-center">
-                            <div className="w-3 h-3 rounded-full bg-emerald-500" />
-                            <div className="w-0.5 flex-1 bg-gray-200 my-1 min-h-[3rem]" />
+                        <div className="flex flex-col items-center pt-0.5">
+                            <div className="w-3 h-3 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-sm" />
+                            <div className="w-0.5 flex-1 bg-gradient-to-b from-emerald-300 to-orange-300 my-1 min-h-[2.5rem]" />
                         </div>
-                        <div className="flex-1 pb-4">
-                            <p className="text-xs text-gray-500 font-medium mb-1">¿Dónde te recogemos?</p>
+                        <div className="flex-1 pb-2">
+                            <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wide mb-1">¿Cuál es tu ubicación?</p>
                             {originCoords || locationState.status === "success" ? (
-                                <div className="space-y-3">
-                                    <div>
-                                        <p className="font-medium text-gray-900">
+                                <div className="space-y-2">
+                                    <div className="bg-emerald-50 rounded-xl p-2 border border-emerald-100">
+                                        <p className="font-medium text-gray-900 text-sm">
                                             {originCoords ? originText || "Ubicación en mapa" : geocodedAddress?.street || "Tu ubicación GPS"}
                                         </p>
                                         <button
-                                            className="text-xs text-blue-500 mt-1"
+                                            className="text-[10px] text-orange-500 font-medium mt-0.5 hover:text-orange-600"
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 setOriginCoords(null);
@@ -406,31 +444,28 @@ export default function TaxiWizardPage() {
                                                 setGeocodedAddress(null);
                                             }}
                                         >
-                                            Cambiar ubicación
+                                            Cambiar
                                         </button>
                                     </div>
-                                    {/* Reference input for origin */}
-                                    <div>
-                                        <input
-                                            type="text"
-                                            placeholder="Referencias: Ej. Casa azul, frente al Oxxo..."
-                                            value={originReference}
-                                            onChange={(e) => setOriginReference(e.target.value)}
-                                            className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                        />
-                                    </div>
+                                    <input
+                                        type="text"
+                                        placeholder="Referencias: Ej. Casa azul..."
+                                        value={originReference}
+                                        onChange={(e) => setOriginReference(e.target.value)}
+                                        className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                    />
                                 </div>
                             ) : locationState.status === "loading" ? (
-                                <div className="flex items-center gap-2 text-gray-500">
-                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                    <span className="text-sm">Obteniendo ubicación...</span>
+                                <div className="flex items-center gap-2 text-gray-500 bg-gray-50 rounded-xl p-2">
+                                    <Loader2 className="w-3 h-3 animate-spin text-orange-500" />
+                                    <span className="text-xs">Obteniendo ubicación...</span>
                                 </div>
                             ) : (
                                 <button
                                     onClick={() => setShowOriginMapPicker(true)}
-                                    className="text-gray-400 hover:text-gray-600 text-left"
+                                    className="w-full text-left bg-gray-50 hover:bg-gray-100 rounded-xl p-2 text-gray-400 text-sm transition-colors"
                                 >
-                                    Selecciona tu ubicación de origen
+                                    Toca para seleccionar origen
                                 </button>
                             )}
                         </div>
@@ -438,120 +473,130 @@ export default function TaxiWizardPage() {
 
                     {/* Destination */}
                     <div className="flex items-start gap-3">
-                        <div className="flex flex-col items-center">
-                            <div className="w-3 h-3 rounded-full bg-red-500" />
+                        <div className="flex flex-col items-center pt-0.5">
+                            <div className="w-3 h-3 rounded-full bg-gradient-to-br from-orange-400 to-red-500 shadow-sm" />
                         </div>
                         <div className="flex-1">
-                            <p className="text-xs text-gray-500 font-medium mb-1">¿A dónde vas?</p>
+                            <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wide mb-1">¿A dónde vas?</p>
                             {destinationCoords ? (
-                                <div className="space-y-3">
-                                    <div>
-                                        <p className="font-medium text-gray-900">{destinationText}</p>
+                                <div className="space-y-2">
+                                    <div className="bg-orange-50 rounded-xl p-2 border border-orange-100">
+                                        <p className="font-medium text-gray-900 text-sm">{destinationText}</p>
                                         <button
-                                            className="text-xs text-blue-500 mt-1"
+                                            className="text-[10px] text-orange-500 font-medium mt-0.5 hover:text-orange-600"
                                             onClick={() => setShowMapPicker(true)}
                                         >
-                                            Cambiar destino
+                                            Cambiar
                                         </button>
                                     </div>
-                                    {/* Reference input for destination */}
-                                    <div>
-                                        <input
-                                            type="text"
-                                            placeholder="Referencias: Ej. Edificio blanco, junto al parque..."
-                                            value={destinationReference}
-                                            onChange={(e) => setDestinationReference(e.target.value)}
-                                            className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                        />
-                                    </div>
+                                    <input
+                                        type="text"
+                                        placeholder="Referencias: Ej. Edificio blanco..."
+                                        value={destinationReference}
+                                        onChange={(e) => setDestinationReference(e.target.value)}
+                                        className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                    />
                                 </div>
                             ) : (
                                 <button
                                     onClick={() => setShowMapPicker(true)}
-                                    className="text-gray-400 hover:text-gray-600 text-left"
+                                    className="w-full text-left bg-gray-50 hover:bg-gray-100 rounded-xl p-2 text-gray-400 text-sm transition-colors"
                                 >
-                                    Selecciona tu destino
+                                    Toca para seleccionar destino
                                 </button>
                             )}
                         </div>
                     </div>
                 </div>
 
-                {/* GPS Button (only if no origin selected) */}
+                {/* GPS Button - Compact */}
                 {!originCoords && locationState.status !== "success" && locationState.status !== "loading" && (
                     <button
                         onClick={requestLocation}
-                        className="w-full bg-white rounded-2xl p-4 shadow-sm flex items-center gap-3 hover:bg-gray-50 transition-colors"
+                        className="w-full bg-white rounded-xl p-3 shadow-md flex items-center gap-3 hover:shadow-lg transition-all border border-gray-100"
                     >
-                        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                            <Navigation className="h-5 w-5 text-blue-600" />
+                        <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-blue-600 rounded-xl flex items-center justify-center shadow-md">
+                            <Navigation className="h-5 w-5 text-white" />
                         </div>
-                        <span className="font-medium text-gray-900">Usar mi ubicación actual</span>
+                        <div className="text-left">
+                            <span className="font-bold text-gray-900 text-sm">Usar mi ubicación actual</span>
+                            <p className="text-[10px] text-gray-500">Detectar con GPS</p>
+                        </div>
                     </button>
                 )}
 
                 {/* Error state */}
                 {locationState.status === "error" && (
-                    <div className="bg-red-50 rounded-xl p-4 flex items-center gap-3">
-                        <MapPin className="w-5 h-5 text-red-500" />
-                        <span className="text-sm text-red-600">{locationState.error}</span>
+                    <div className="bg-red-50 rounded-xl p-3 flex items-center gap-2 border border-red-100">
+                        <MapPin className="w-4 h-4 text-red-500" />
+                        <span className="text-xs text-red-600 font-medium">{locationState.error}</span>
                     </div>
                 )}
 
-                {/* Price Card */}
+                {/* Price Card - Compact */}
                 {destinationCoords && effectiveOriginCoords && (
-                    <div className="bg-white rounded-2xl p-5 shadow-sm">
-                        <div className="flex items-center justify-between mb-4">
+                    <div className="bg-white rounded-xl p-3 shadow-md border border-gray-100">
+                        {/* Header */}
+                        <div className="flex items-center justify-between mb-2">
                             <div>
-                                <h3 className="font-bold text-gray-900 text-lg">Económico</h3>
-                                <div className="flex items-center gap-3 text-sm text-gray-500 mt-1">
-                                    <span className="flex items-center gap-1">
-                                        <Timer className="w-4 h-4" />
-                                        {routeETA} min
-                                    </span>
-                                    <span>•</span>
-                                    <span>{routeDistance.toFixed(1)} km</span>
-                                </div>
+                                <span className="bg-orange-100 text-orange-600 text-[9px] font-bold px-2 py-0.5 rounded-full">RECOMENDADO</span>
+                                <h3 className="font-bold text-gray-900 text-base mt-0.5">Moto Económica</h3>
                             </div>
-                            <div className="w-14 h-14 bg-purple-100 rounded-xl flex items-center justify-center">
-                                <Bike className="w-8 h-8 text-purple-600" />
+                            <div className="flex items-center gap-1.5 text-[10px] text-gray-500">
+                                <span className="flex items-center gap-0.5">
+                                    <Timer className="w-2.5 h-2.5" />
+                                    {routeETA} min
+                                </span>
+                                <span>•</span>
+                                <span>{routeDistance.toFixed(1)} km</span>
                             </div>
                         </div>
 
-                        <div className="flex items-end justify-between pt-4 border-t border-gray-100">
-                            <div>
-                                <p className="text-xs text-gray-500">Precio estimado</p>
-                                <p className="text-3xl font-bold text-gray-900">${estimatedPrice}</p>
+                        {/* Price Breakdown */}
+                        <div className="bg-gray-50 rounded-lg p-2 space-y-1 text-sm">
+                            <div className="flex justify-between items-center">
+                                <span className="text-gray-600">Costo del servicio</span>
+                                <span className="font-semibold text-gray-900">$17.00</span>
                             </div>
-                            <div className="flex items-center gap-2 bg-emerald-100 text-emerald-700 px-3 py-1.5 rounded-full text-xs font-medium">
-                                <Banknote className="w-4 h-4" />
+                            <div className="flex justify-between items-center">
+                                <span className="text-gray-600">Comisión de app</span>
+                                <span className="font-semibold text-gray-900">$3.00</span>
+                            </div>
+                            <div className="border-t border-gray-200 pt-1 flex justify-between items-center">
+                                <span className="font-bold text-gray-900">Total</span>
+                                <span className="text-xl font-black text-orange-500">${estimatedPrice}.00</span>
+                            </div>
+                        </div>
+
+                        {/* Payment method */}
+                        <div className="flex items-center justify-end mt-2">
+                            <div className="flex items-center gap-1 bg-emerald-500 text-white px-2.5 py-1 rounded-full text-[10px] font-bold">
+                                <Banknote className="w-2.5 h-2.5" />
                                 Efectivo
                             </div>
                         </div>
                     </div>
                 )}
 
-
-
                 {/* Error display */}
                 {error && (
-                    <div className="p-4 rounded-xl bg-red-50 text-red-600 text-sm">
+                    <div className="p-3 rounded-xl bg-red-50 text-red-600 text-xs border border-red-100">
                         {error}
                     </div>
                 )}
             </div>
 
             {/* Fixed Bottom Button */}
-            <div className="fixed bottom-16 left-0 right-0 p-4 bg-white border-t border-gray-100 z-50">
+            <div className="fixed bottom-16 left-0 right-0 p-4 bg-white/95 backdrop-blur-sm border-t border-gray-100 z-50">
                 <Button
-                    className="w-full h-14 text-lg font-bold bg-purple-500 hover:bg-purple-600 rounded-xl shadow-lg shadow-purple-200"
+                    className="w-full h-14 text-lg font-bold bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 rounded-2xl shadow-xl shadow-orange-200"
                     disabled={!isFormValid || isLoading}
                     onClick={handleSubmit}
                 >
                     {isLoading ? (
                         <>
                             <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                            Enviando...
+                            Buscando conductor...
                         </>
                     ) : (
                         <>
@@ -561,8 +606,8 @@ export default function TaxiWizardPage() {
                     )}
                 </Button>
                 {!isFormValid && (
-                    <p className="text-xs text-center text-gray-500 mt-2">
-                        {!effectiveOriginCoords && "Selecciona dónde te recogen"}
+                    <p className="text-xs text-center text-gray-400 mt-2 font-medium">
+                        {!effectiveOriginCoords && "Selecciona tu ubicación de origen"}
                         {effectiveOriginCoords && !destinationCoords && "Selecciona tu destino"}
                     </p>
                 )}

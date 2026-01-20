@@ -373,9 +373,14 @@ export function Radar({ serviceType, isAvailable }: RadarProps) {
             toast.success("¡Servicio aceptado!");
 
             // Navigate to service execution page based on service type
-            const servicePath = req.service_type === "mandadito"
-                ? `/mandadito/servicio/${req.id}`
-                : `/taxi/servicio/${req.id}`;
+            let servicePath: string;
+            if (req.service_type === "moto_ride") {
+                servicePath = `/moto-ride/servicio/${req.id}`;
+            } else if (req.service_type === "mandadito") {
+                servicePath = `/mandadito/servicio/${req.id}`;
+            } else {
+                servicePath = `/taxi/servicio/${req.id}`;
+            }
             router.push(servicePath);
 
         } catch (err: any) {
