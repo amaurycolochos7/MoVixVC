@@ -133,14 +133,14 @@ export const DriverNavigationMap = forwardRef<DriverNavigationMapRef, DriverNavi
         return isValidCoords(target) ? target : DEFAULT_CENTER;
     }, [animatedDriver.position, driverLocation, phase, pickupLocation, dropoffLocation]);
 
-    // Camera follow mode
+    // Camera follow mode - 3D navigation view with auto-rotation
     const followCamera = useFollowCamera({
         mapRef,
         targetPosition: cameraTarget,
-        targetBearing: animatedDriver.bearing, // Follow rotation
+        targetBearing: animatedDriver.bearing, // Follow rotation - map rotates with driver heading
         enabled: hasDriverLocation,
-        zoom: 16,
-        pitch: 0,
+        zoom: 17, // Closer zoom for navigation
+        pitch: 45, // 3D perspective for better orientation
     });
 
     // Detect user interaction to disable follow
@@ -258,23 +258,21 @@ export const DriverNavigationMap = forwardRef<DriverNavigationMapRef, DriverNavi
                 initialViewState={{
                     longitude: cameraTarget.lng,
                     latitude: cameraTarget.lat,
-                    zoom: 15,
-                    pitch: 0, // Flat 2D view - no tilt
-                    bearing: 0, // No rotation
+                    zoom: 17,
+                    pitch: 45, // 3D navigation view
+                    bearing: 0, // Will be controlled by followCamera
                 }}
                 style={{ width: "100%", height: "100%" }}
                 mapStyle={MAP_STYLE}
                 attributionControl={false}
                 logoPosition="bottom-left"
                 scrollZoom={true}
-                touchZoomRotate={{
-                    disableRotation: true // Allow zoom but no rotation with touch
-                }}
-                touchPitch={false} // Disable pitch changes with touch
+                touchZoomRotate={true} // Allow touch zoom and rotation
+                touchPitch={true} // Allow pitch with touch
                 doubleClickZoom={true}
                 dragPan={true}
-                dragRotate={false} // Disable rotation with drag
-                pitchWithRotate={false}
+                dragRotate={true} // Allow rotation with drag
+                pitchWithRotate={true}
                 keyboard={false} // Disable keyboard shortcuts
                 maxPitch={60}
                 minPitch={0}
@@ -332,18 +330,15 @@ export const DriverNavigationMap = forwardRef<DriverNavigationMapRef, DriverNavi
 
             {/* Map controls - Right side */}
             <div className="absolute right-3 top-1/2 -translate-y-1/2 z-20 flex flex-col gap-2">
-                {/* Follow/Center Button */}
+                {/* Recenter Button - Just recenters, no lock mode */}
                 <Button
                     size="icon"
-                    className={`rounded-full w-11 h-11 shadow-lg transition-all ${followCamera.isFollowing
-                        ? "bg-blue-600 hover:bg-blue-700 text-white"
-                        : "bg-white hover:bg-gray-50 text-gray-700 border border-gray-200"
-                        }`}
-                    onClick={followCamera.toggleFollow}
+                    className="rounded-full w-11 h-11 shadow-lg bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 active:scale-95 transition-all"
+                    onClick={followCamera.recenter}
                     disabled={!hasDriverLocation}
-                    title={followCamera.isFollowing ? "Modo libre" : "Centrar en mí"}
+                    title="Centrar en mi ubicación"
                 >
-                    <Crosshair className={`w-5 h-5 ${followCamera.isFollowing ? "animate-pulse" : ""}`} />
+                    <Crosshair className="w-5 h-5" />
                 </Button>
             </div>
 

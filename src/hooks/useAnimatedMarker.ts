@@ -13,9 +13,9 @@ export const TRACKING_CONFIG = {
     MAX_SPEED_KMH: process.env.NODE_ENV === "development" ? 2000 : 140, // Relax speed check in dev
     MIN_MOVEMENT_M: 5, // Minimum movement to update bearing
 
-    // Route recalculation
-    REROUTE_INTERVAL_S: 30, // Max seconds between route recalcs
-    OFF_ROUTE_METERS: 70, // Recalc if > 70m from route
+    // Route recalculation - optimized for faster updates
+    REROUTE_INTERVAL_S: 15, // Max seconds between route recalcs (was 30)
+    OFF_ROUTE_METERS: 50, // Recalc if > 50m from route (was 70)
 
     // Camera
     DEFAULT_ZOOM: 16,

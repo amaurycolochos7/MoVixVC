@@ -15,13 +15,14 @@ interface UseFollowCameraOptions {
 }
 
 interface FollowCameraState {
-    isFollowing: boolean;
-    lastUserInteraction: number;
+    userZoom: number | null; // User's preferred zoom level
+    lastRecenter: number;
 }
 
 /**
  * Hook for camera following behavior like Uber/Didi
- * Smoothly follows the target position with configurable zoom and pitch
+ * ALWAYS follows position but respects user zoom preferences
+ * No toggle lock - just a recenter button
  */
 export function useFollowCamera(options: UseFollowCameraOptions) {
     const {
@@ -35,52 +36,20 @@ export function useFollowCamera(options: UseFollowCameraOptions) {
     } = options;
 
     const [state, setState] = useState<FollowCameraState>({
-        isFollowing: enabled,
-        lastUserInteraction: 0,
+        userZoom: null,
+        lastRecenter: 0,
     });
 
     const animatingRef = useRef(false);
     const lastEaseToRef = useRef<number>(0);
 
     /**
-     * Enable follow mode
+     * Recenter on current position with default zoom
+     * Called when user clicks the recenter button
      */
-    const enableFollow = useCallback(() => {
-        setState(prev => ({ ...prev, isFollowing: true }));
-    }, []);
-
-    /**
-     * Disable follow mode (when user pans manually)
-     */
-    const disableFollow = useCallback(() => {
-        setState(prev => ({
-            ...prev,
-            isFollowing: false,
-            lastUserInteraction: Date.now(),
-        }));
-    }, []);
-
-    /**
-     * Toggle follow mode
-     */
-    const toggleFollow = useCallback(() => {
-        setState(prev => ({
-            ...prev,
-            isFollowing: !prev.isFollowing,
-        }));
-    }, []);
-
-    /**
-     * Move camera to target with smooth transition
-     */
-    const flyToTarget = useCallback(() => {
-        if (!mapRef.current || !state.isFollowing) return;
+    const recenter = useCallback(() => {
+        if (!mapRef.current) return;
         if (targetPosition.lat === 0 && targetPosition.lng === 0) return;
-
-        // Throttle easeTo calls to avoid overwhelming the map
-        const now = Date.now();
-        if (now - lastEaseToRef.current < 100) return;
-        lastEaseToRef.current = now;
 
         animatingRef.current = true;
 
@@ -89,17 +58,49 @@ export function useFollowCamera(options: UseFollowCameraOptions) {
             zoom,
             bearing: targetBearing,
             pitch,
-            duration: transitionDuration,
+            duration: 500,
             easing: easeOutCubic,
         });
 
+        // Reset user zoom preference
+        setState(prev => ({ ...prev, userZoom: null, lastRecenter: Date.now() }));
+
         setTimeout(() => {
             animatingRef.current = false;
-        }, transitionDuration);
-    }, [mapRef, targetPosition, targetBearing, zoom, pitch, transitionDuration, state.isFollowing]);
+        }, 500);
+    }, [mapRef, targetPosition, targetBearing, zoom, pitch]);
 
     /**
-     * Initial center on target (instant, no animation)
+     * Smooth follow - moves camera to position but preserves user zoom
+     */
+    const smoothFollow = useCallback(() => {
+        if (!mapRef.current || animatingRef.current) return;
+        if (targetPosition.lat === 0 && targetPosition.lng === 0) return;
+
+        // Throttle to avoid overwhelming the map
+        const now = Date.now();
+        if (now - lastEaseToRef.current < 200) return;
+        lastEaseToRef.current = now;
+
+        // Get current zoom to preserve it
+        const currentZoom = mapRef.current.getZoom();
+        const currentPitch = mapRef.current.getPitch();
+
+        // Use user's zoom if they've zoomed, otherwise use default
+        const targetZoom = state.userZoom ?? zoom;
+
+        mapRef.current.easeTo({
+            center: [targetPosition.lng, targetPosition.lat],
+            zoom: targetZoom,
+            bearing: targetBearing,
+            pitch: currentPitch || pitch,
+            duration: transitionDuration,
+            easing: easeOutCubic,
+        });
+    }, [mapRef, targetPosition, targetBearing, zoom, pitch, transitionDuration, state.userZoom]);
+
+    /**
+     * Initial center (instant, no animation)
      */
     const centerOnTarget = useCallback(() => {
         if (!mapRef.current) return;
@@ -111,24 +112,34 @@ export function useFollowCamera(options: UseFollowCameraOptions) {
             bearing: targetBearing,
             pitch,
         });
-
-        setState(prev => ({ ...prev, isFollowing: true }));
     }, [mapRef, targetPosition, targetBearing, zoom, pitch]);
 
-    // Follow target when position changes
+    // Always follow target when position changes
     useEffect(() => {
-        if (state.isFollowing && enabled) {
-            flyToTarget();
+        if (enabled) {
+            smoothFollow();
         }
-    }, [targetPosition.lat, targetPosition.lng, state.isFollowing, enabled, flyToTarget]);
+    }, [targetPosition.lat, targetPosition.lng, targetBearing, enabled, smoothFollow]);
+
+    // Legacy compatibility - these do nothing now but prevent errors
+    const enableFollow = useCallback(() => { }, []);
+    const disableFollow = useCallback(() => {
+        // When user interacts, save their zoom level
+        if (mapRef.current) {
+            const currentZoom = mapRef.current.getZoom();
+            setState(prev => ({ ...prev, userZoom: currentZoom }));
+        }
+    }, [mapRef]);
+    const toggleFollow = recenter; // Toggle now just recenters
 
     return {
-        isFollowing: state.isFollowing,
+        isFollowing: true, // Always following
         enableFollow,
         disableFollow,
         toggleFollow,
         centerOnTarget,
-        flyToTarget,
+        flyToTarget: smoothFollow,
+        recenter,
         isAnimating: animatingRef.current,
     };
 }

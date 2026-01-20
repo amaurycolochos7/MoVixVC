@@ -72,73 +72,90 @@ export default function LoginPage() {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-primary/10 to-surface p-6">
-            <Card className="w-full max-w-md">
-                <CardHeader className="text-center">
-                    <CardTitle className="text-2xl">Iniciar Sesión</CardTitle>
-                    <p className="text-sm text-muted-foreground">Ingresa a tu cuenta MoVix</p>
-                </CardHeader>
-                <CardContent>
-                    <form onSubmit={handleLogin} className="space-y-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="email">Correo electrónico</Label>
-                            <div className="relative">
-                                <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                                <Input
-                                    id="email"
-                                    type="email"
-                                    placeholder="tu@email.com"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    className="pl-10"
-                                    required
-                                />
+        <div className="min-h-screen bg-white flex flex-col">
+            {/* Orange Header */}
+            <div className="bg-gradient-to-br from-orange-500 to-orange-600 pt-12 pb-20 px-6 rounded-b-[40px]">
+                <div className="max-w-sm mx-auto text-center">
+                    <h1 className="text-3xl font-bold text-white mb-1">MoVix</h1>
+                    <p className="text-orange-100 text-sm">Tu App de Movilidad Local</p>
+                </div>
+            </div>
+
+            {/* Login Card - Overlapping Header */}
+            <div className="flex-1 px-6 -mt-12">
+                <div className="max-w-sm mx-auto">
+                    <Card className="shadow-xl border-0">
+                        <CardHeader className="text-center pb-2">
+                            <CardTitle className="text-xl">Iniciar Sesión</CardTitle>
+                            <p className="text-sm text-muted-foreground">Ingresa a tu cuenta</p>
+                        </CardHeader>
+                        <CardContent>
+                            <form onSubmit={handleLogin} className="space-y-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="email">Correo electrónico</Label>
+                                    <div className="relative">
+                                        <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                                        <Input
+                                            id="email"
+                                            type="email"
+                                            placeholder="tu@email.com"
+                                            value={email}
+                                            onChange={(e) => setEmail(e.target.value)}
+                                            className="pl-10 h-11 rounded-xl"
+                                            required
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label htmlFor="password">Contraseña</Label>
+                                    <div className="relative">
+                                        <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                                        <Input
+                                            id="password"
+                                            type="password"
+                                            placeholder="••••••••"
+                                            value={password}
+                                            onChange={(e) => setPassword(e.target.value)}
+                                            className="pl-10 h-11 rounded-xl"
+                                            required
+                                            minLength={6}
+                                        />
+                                    </div>
+                                </div>
+
+                                <Button
+                                    type="submit"
+                                    className="w-full h-12 text-sm font-semibold bg-orange-500 hover:bg-orange-600 text-white rounded-xl shadow-lg shadow-orange-200"
+                                    disabled={loading}
+                                >
+                                    {loading ? (
+                                        <>
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                            Ingresando...
+                                        </>
+                                    ) : (
+                                        "Iniciar Sesión"
+                                    )}
+                                </Button>
+                            </form>
+
+                            <div className="mt-6 text-center text-sm">
+                                <span className="text-muted-foreground">¿No tienes cuenta? </span>
+                                <Link href="/registro" className="text-orange-500 font-medium hover:underline">
+                                    Regístrate
+                                </Link>
                             </div>
-                        </div>
 
-                        <div className="space-y-2">
-                            <Label htmlFor="password">Contraseña</Label>
-                            <div className="relative">
-                                <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                                <Input
-                                    id="password"
-                                    type="password"
-                                    placeholder="••••••••"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    className="pl-10"
-                                    required
-                                    minLength={6}
-                                />
+                            <div className="mt-4 text-center">
+                                <Link href="/" className="text-sm text-muted-foreground hover:text-orange-500">
+                                    ← Volver al inicio
+                                </Link>
                             </div>
-                        </div>
-
-                        <Button type="submit" className="w-full" disabled={loading}>
-                            {loading ? (
-                                <>
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                    Ingresando...
-                                </>
-                            ) : (
-                                "Iniciar Sesión"
-                            )}
-                        </Button>
-                    </form>
-
-                    <div className="mt-6 text-center text-sm">
-                        <span className="text-muted-foreground">¿No tienes cuenta? </span>
-                        <Link href="/registro" className="text-primary font-medium hover:underline">
-                            Regístrate
-                        </Link>
-                    </div>
-
-                    <div className="mt-4 text-center">
-                        <Link href="/" className="text-sm text-muted-foreground hover:text-primary">
-                            ← Volver al inicio
-                        </Link>
-                    </div>
-                </CardContent>
-            </Card>
+                        </CardContent>
+                    </Card>
+                </div>
+            </div>
         </div>
     );
 }

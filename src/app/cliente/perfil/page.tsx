@@ -79,60 +79,78 @@ export default function ClientePerfilPage() {
     };
 
     return (
-        <div className="space-y-6">
-            <h1 className="text-xl font-bold">Mi Perfil</h1>
+        <div className="p-4 space-y-6 max-w-lg mx-auto">
+            {/* Header */}
+            <h1 className="text-2xl font-bold text-center">Mi Perfil</h1>
 
-            {/* Avatar + Basic Info */}
-            <div className="flex items-center gap-4 py-4">
-                <AvatarUpload
-                    currentAvatarUrl={profile.avatar_url}
-                    userId={profile.id}
-                    onUploadComplete={refreshProfile}
-                />
-                <div className="flex-1">
-                    {isEditing ? (
-                        <div className="flex items-center gap-2">
-                            <Input
-                                value={fullName}
-                                onChange={(e) => setFullName(e.target.value)}
-                                className="h-9"
-                            />
-                            <Button size="sm" onClick={handleSaveName} disabled={saving}>
-                                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-                            </Button>
-                        </div>
-                    ) : (
-                        <div className="flex items-center gap-2">
-                            <h2 className="font-semibold">{profile.full_name || "Sin nombre"}</h2>
-                            <Button variant="ghost" size="sm" onClick={() => {
-                                setFullName(profile.full_name || "");
-                                setIsEditing(true);
-                            }}>
-                                <Pencil className="h-3 w-3" />
-                            </Button>
-                        </div>
-                    )}
-                    <p className="text-sm text-text-secondary">{profile.email}</p>
-                    {profile.phone && (
-                        <p className="text-sm text-text-secondary">{profile.phone}</p>
-                    )}
-                </div>
-            </div>
+            {/* Profile Card */}
+            <Card className="shadow-sm">
+                <CardContent className="p-6">
+                    <div className="flex flex-col items-center text-center space-y-4">
+                        {/* Avatar */}
+                        <AvatarUpload
+                            currentAvatarUrl={profile.avatar_url}
+                            userId={profile.id}
+                            onUploadComplete={refreshProfile}
+                        />
 
-            {/* Actions */}
-            <div className="space-y-3">
-                <Card>
-                    <CardContent className="p-0">
-                        <Button
-                            variant="ghost"
-                            className="w-full justify-start rounded-none h-14 px-6 text-danger hover:text-danger hover:bg-danger/10"
-                            onClick={handleLogout}
-                        >
-                            <LogOut className="mr-3 h-5 w-5" /> Cerrar Sesión
-                        </Button>
-                    </CardContent>
-                </Card>
-            </div>
+                        {/* Name */}
+                        <div className="w-full">
+                            {isEditing ? (
+                                <div className="flex items-center gap-2 justify-center">
+                                    <Input
+                                        value={fullName}
+                                        onChange={(e) => setFullName(e.target.value)}
+                                        className="h-10 text-center max-w-[200px]"
+                                        placeholder="Tu nombre"
+                                    />
+                                    <Button size="icon" onClick={handleSaveName} disabled={saving}>
+                                        {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                                    </Button>
+                                </div>
+                            ) : (
+                                <div className="flex items-center justify-center gap-2">
+                                    <h2 className="text-xl font-semibold">{profile.full_name || "Sin nombre"}</h2>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => {
+                                        setFullName(profile.full_name || "");
+                                        setIsEditing(true);
+                                    }}>
+                                        <Pencil className="h-4 w-4 text-gray-400" />
+                                    </Button>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Email & Phone */}
+                        <div className="space-y-1 text-text-secondary">
+                            <p className="text-sm">{profile.email}</p>
+                            {profile.phone && (
+                                <p className="text-sm">{profile.phone}</p>
+                            )}
+                        </div>
+
+                        {/* Role Badge */}
+                        <div className="inline-flex items-center px-3 py-1 rounded-full bg-primary/10 text-primary text-sm font-medium">
+                            <User className="h-4 w-4 mr-1" />
+                            {profile.role === 'cliente' ? 'Cliente' : profile.role === 'chofer' ? 'Conductor' : 'Admin'}
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+
+            {/* Actions Card */}
+            <Card className="shadow-sm overflow-hidden">
+                <CardContent className="p-0">
+                    <Button
+                        variant="ghost"
+                        className="w-full justify-start h-14 px-6 text-danger hover:text-danger hover:bg-danger/5 rounded-none"
+                        onClick={handleLogout}
+                    >
+                        <LogOut className="mr-3 h-5 w-5" />
+                        Cerrar Sesión
+                    </Button>
+                </CardContent>
+            </Card>
         </div>
     );
 }

@@ -180,334 +180,362 @@ export default function RegistroPage() {
     // Render OTP verification step
     if (step === "otp") {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-primary/10 to-surface p-6">
-                <OTPVerification
-                    email={formData.email}
-                    onVerified={completeRegistration}
-                    onResend={sendOTP}
-                    onBack={() => setStep("form")}
-                />
+            <div className="min-h-screen bg-white flex flex-col">
+                <div className="bg-gradient-to-br from-orange-500 to-orange-600 pt-12 pb-20 px-6 rounded-b-[40px]">
+                    <div className="max-w-sm mx-auto text-center">
+                        <h1 className="text-3xl font-bold text-white mb-1">MoVix</h1>
+                        <p className="text-orange-100 text-sm">Verificación de cuenta</p>
+                    </div>
+                </div>
+                <div className="flex-1 px-6 -mt-12">
+                    <div className="max-w-sm mx-auto">
+                        <OTPVerification
+                            email={formData.email}
+                            onVerified={completeRegistration}
+                            onResend={sendOTP}
+                            onBack={() => setStep("form")}
+                        />
+                    </div>
+                </div>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-primary/10 to-surface p-6">
-            <Card className="w-full max-w-md">
-                <CardHeader className="text-center">
-                    <CardTitle className="text-2xl">Crear Cuenta</CardTitle>
-                    <p className="text-sm text-muted-foreground">Únete a MoVix</p>
-                </CardHeader>
-                <CardContent>
-                    <form onSubmit={handleSubmitForm} className="space-y-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="fullName">Nombre completo</Label>
-                            <div className="relative">
-                                <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                                <Input
-                                    id="fullName"
-                                    placeholder="Tu nombre"
-                                    value={formData.fullName}
-                                    onChange={(e) => handleChange("fullName", e.target.value)}
-                                    className="pl-10"
-                                    required
-                                />
-                            </div>
-                        </div>
+        <div className="min-h-screen bg-white flex flex-col">
+            {/* Orange Header */}
+            <div className="bg-gradient-to-br from-orange-500 to-orange-600 pt-12 pb-20 px-6 rounded-b-[40px] shrink-0">
+                <div className="max-w-sm mx-auto text-center">
+                    <h1 className="text-3xl font-bold text-white mb-1">MoVix</h1>
+                    <p className="text-orange-100 text-sm">Tu App de Movilidad Local</p>
+                </div>
+            </div>
 
-                        <div className="space-y-2">
-                            <Label htmlFor="email">Correo electrónico</Label>
-                            <div className="relative">
-                                <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                                <Input
-                                    id="email"
-                                    type="email"
-                                    placeholder="tu@email.com"
-                                    value={formData.email}
-                                    onChange={(e) => handleChange("email", e.target.value)}
-                                    className="pl-10"
-                                    required
-                                />
-                            </div>
-                        </div>
+            {/* Registration Card */}
+            <div className="flex-1 px-6 -mt-12 pb-8">
+                <div className="max-w-sm mx-auto">
+                    <Card className="shadow-xl border-0">
+                        <CardHeader className="text-center pb-2">
+                            <CardTitle className="text-xl">Crear Cuenta</CardTitle>
+                            <p className="text-sm text-muted-foreground">Únete a MoVix</p>
+                        </CardHeader>
+                        <CardContent>
+                            <form onSubmit={handleSubmitForm} className="space-y-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="fullName">Nombre completo</Label>
+                                    <div className="relative">
+                                        <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                                        <Input
+                                            id="fullName"
+                                            placeholder="Tu nombre"
+                                            value={formData.fullName}
+                                            onChange={(e) => handleChange("fullName", e.target.value)}
+                                            className="pl-10"
+                                            required
+                                        />
+                                    </div>
+                                </div>
 
-                        <div className="space-y-2">
-                            <Label htmlFor="phone">Teléfono (opcional)</Label>
-                            <div className="relative">
-                                <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                                <Input
-                                    id="phone"
-                                    type="tel"
-                                    placeholder="55 1234 5678"
-                                    value={formData.phone}
-                                    onChange={(e) => handleChange("phone", e.target.value)}
-                                    className="pl-10"
-                                />
-                            </div>
-                        </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="email">Correo electrónico</Label>
+                                    <div className="relative">
+                                        <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                                        <Input
+                                            id="email"
+                                            type="email"
+                                            placeholder="tu@email.com"
+                                            value={formData.email}
+                                            onChange={(e) => handleChange("email", e.target.value)}
+                                            className="pl-10"
+                                            required
+                                        />
+                                    </div>
+                                </div>
 
-                        <div className="space-y-2">
-                            <Label>¿Cómo usarás MoVix?</Label>
-                            <Select
-                                value={formData.role}
-                                onValueChange={(val: string) => handleChange("role", val)}
-                            >
-                                <SelectTrigger className="w-full h-12 bg-white border-2 border-gray-200 focus:border-primary text-gray-900">
-                                    <SelectValue placeholder="Selecciona tu rol" />
-                                </SelectTrigger>
-                                <SelectContent
-                                    className="z-50 bg-white border border-gray-200 shadow-xl rounded-lg"
-                                    position="popper"
-                                    sideOffset={4}
-                                >
-                                    <SelectItem value="cliente" className="py-3 cursor-pointer hover:bg-indigo-50">
-                                        <div className="flex items-center gap-3">
-                                            <User className="w-5 h-5 text-primary" />
-                                            <div>
-                                                <div className="font-medium text-gray-900">Soy Cliente</div>
-                                                <div className="text-xs text-gray-500">Pedir taxi o mandadito</div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="phone">Teléfono (opcional)</Label>
+                                    <div className="relative">
+                                        <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                                        <Input
+                                            id="phone"
+                                            type="tel"
+                                            placeholder="55 1234 5678"
+                                            value={formData.phone}
+                                            onChange={(e) => handleChange("phone", e.target.value)}
+                                            className="pl-10"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label>¿Cómo usarás MoVix?</Label>
+                                    <Select
+                                        value={formData.role}
+                                        onValueChange={(val: string) => handleChange("role", val)}
+                                    >
+                                        <SelectTrigger className="w-full h-12 bg-white border-2 border-gray-200 focus:border-primary text-gray-900">
+                                            <SelectValue placeholder="Selecciona tu rol" />
+                                        </SelectTrigger>
+                                        <SelectContent
+                                            className="z-50 bg-white border border-gray-200 shadow-xl rounded-lg"
+                                            position="popper"
+                                            sideOffset={4}
+                                        >
+                                            <SelectItem value="cliente" className="py-3 cursor-pointer hover:bg-indigo-50">
+                                                <div className="flex items-center gap-3">
+                                                    <User className="w-5 h-5 text-primary" />
+                                                    <div>
+                                                        <div className="font-medium text-gray-900">Soy Cliente</div>
+                                                        <div className="text-xs text-gray-500">Pedir taxi o mandadito</div>
+                                                    </div>
+                                                </div>
+                                            </SelectItem>
+                                            <SelectItem value="taxi" className="py-3 cursor-pointer hover:bg-green-50">
+                                                <div className="flex items-center gap-3">
+                                                    <Car className="w-5 h-5 text-secondary" />
+                                                    <div>
+                                                        <div className="font-medium text-gray-900">Soy Chofer de Taxi</div>
+                                                        <div className="text-xs text-gray-500">Recibir solicitudes de viaje</div>
+                                                    </div>
+                                                </div>
+                                            </SelectItem>
+                                            <SelectItem value="mandadito" className="py-3 cursor-pointer hover:bg-orange-50">
+                                                <div className="flex items-center gap-3">
+                                                    <Package className="w-5 h-5 text-orange-500" />
+                                                    <div>
+                                                        <div className="font-medium text-gray-900">Soy Mandadito</div>
+                                                        <div className="text-xs text-gray-500">Hacer entregas y encargos</div>
+                                                    </div>
+                                                </div>
+                                            </SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                {/* Vehicle Data Section - TAXI */}
+                                {formData.role === "taxi" && (
+                                    <div className="mt-6 pt-6 border-t-2 border-gray-200 space-y-4">
+                                        <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                                            <Car className="w-5 h-5 text-primary" />
+                                            Datos del Vehículo
+                                        </h3>
+                                        <p className="text-sm text-muted-foreground">
+                                            Todos los campos son obligatorios
+                                        </p>
+
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-2">
+                                                <Label htmlFor="vehicleBrand">Marca</Label>
+                                                <Input
+                                                    id="vehicleBrand"
+                                                    placeholder="Nissan, Toyota, Chevrolet"
+                                                    value={formData.vehicleBrand}
+                                                    onChange={(e) => handleChange("vehicleBrand", e.target.value)}
+                                                />
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <Label htmlFor="vehicleModel">Modelo</Label>
+                                                <Input
+                                                    id="vehicleModel"
+                                                    placeholder="Versa 2020"
+                                                    value={formData.vehicleModel}
+                                                    onChange={(e) => handleChange("vehicleModel", e.target.value)}
+                                                />
                                             </div>
                                         </div>
-                                    </SelectItem>
-                                    <SelectItem value="taxi" className="py-3 cursor-pointer hover:bg-green-50">
-                                        <div className="flex items-center gap-3">
-                                            <Car className="w-5 h-5 text-secondary" />
-                                            <div>
-                                                <div className="font-medium text-gray-900">Soy Chofer de Taxi</div>
-                                                <div className="text-xs text-gray-500">Recibir solicitudes de viaje</div>
+
+                                        <div className="space-y-2">
+                                            <Label htmlFor="vehicleColor">Color</Label>
+                                            <Input
+                                                id="vehicleColor"
+                                                placeholder="Blanco, Verde, Rojo"
+                                                value={formData.vehicleColor}
+                                                onChange={(e) => handleChange("vehicleColor", e.target.value)}
+                                            />
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-2">
+                                                <Label htmlFor="vehiclePlate">Placas</Label>
+                                                <Input
+                                                    id="vehiclePlate"
+                                                    placeholder="ABC-1234"
+                                                    value={formData.vehiclePlate}
+                                                    onChange={(e) => handleChange("vehiclePlate", e.target.value)}
+                                                />
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <Label htmlFor="taxiNumber">Número de Taxi</Label>
+                                                <Input
+                                                    id="taxiNumber"
+                                                    placeholder="1234"
+                                                    value={formData.taxiNumber}
+                                                    onChange={(e) => handleChange("taxiNumber", e.target.value)}
+                                                />
                                             </div>
                                         </div>
-                                    </SelectItem>
-                                    <SelectItem value="mandadito" className="py-3 cursor-pointer hover:bg-orange-50">
-                                        <div className="flex items-center gap-3">
+                                    </div>
+                                )}
+
+                                {/* Vehicle Data Section - MANDADITO (Motorcycle) */}
+                                {formData.role === "mandadito" && (
+                                    <div className="mt-6 pt-6 border-t-2 border-orange-200 space-y-4">
+                                        <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                                             <Package className="w-5 h-5 text-orange-500" />
-                                            <div>
-                                                <div className="font-medium text-gray-900">Soy Mandadito</div>
-                                                <div className="text-xs text-gray-500">Hacer entregas y encargos</div>
+                                            Datos de la Motocicleta
+                                        </h3>
+                                        <p className="text-sm text-muted-foreground">
+                                            Marca, modelo y color son obligatorios
+                                        </p>
+
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-2">
+                                                <Label htmlFor="vehicleBrand">Marca *</Label>
+                                                <Input
+                                                    id="vehicleBrand"
+                                                    placeholder="Honda, Italika, Yamaha"
+                                                    value={formData.vehicleBrand}
+                                                    onChange={(e) => handleChange("vehicleBrand", e.target.value)}
+                                                    required
+                                                />
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <Label htmlFor="vehicleModel">Modelo *</Label>
+                                                <Input
+                                                    id="vehicleModel"
+                                                    placeholder="FT 150, Vento 2022"
+                                                    value={formData.vehicleModel}
+                                                    onChange={(e) => handleChange("vehicleModel", e.target.value)}
+                                                    required
+                                                />
                                             </div>
                                         </div>
-                                    </SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
 
-                        {/* Vehicle Data Section - TAXI */}
-                        {formData.role === "taxi" && (
-                            <div className="mt-6 pt-6 border-t-2 border-gray-200 space-y-4">
-                                <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                                    <Car className="w-5 h-5 text-primary" />
-                                    Datos del Vehículo
-                                </h3>
-                                <p className="text-sm text-muted-foreground">
-                                    Todos los campos son obligatorios
-                                </p>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="vehicleColor">Color *</Label>
+                                            <Input
+                                                id="vehicleColor"
+                                                placeholder="Negro, Rojo, Azul"
+                                                value={formData.vehicleColor}
+                                                onChange={(e) => handleChange("vehicleColor", e.target.value)}
+                                                required
+                                            />
+                                        </div>
 
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="vehicleBrand">Marca</Label>
-                                        <Input
-                                            id="vehicleBrand"
-                                            placeholder="Nissan, Toyota, Chevrolet"
-                                            value={formData.vehicleBrand}
-                                            onChange={(e) => handleChange("vehicleBrand", e.target.value)}
-                                        />
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-2">
+                                                <Label htmlFor="vehiclePlate">Placas (opcional)</Label>
+                                                <Input
+                                                    id="vehiclePlate"
+                                                    placeholder="M12-ABC"
+                                                    value={formData.vehiclePlate}
+                                                    onChange={(e) => handleChange("vehiclePlate", e.target.value)}
+                                                />
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <Label htmlFor="taxiNumber">Número Económico (opcional)</Label>
+                                                <Input
+                                                    id="taxiNumber"
+                                                    placeholder="123"
+                                                    value={formData.taxiNumber}
+                                                    onChange={(e) => handleChange("taxiNumber", e.target.value)}
+                                                />
+                                            </div>
+                                        </div>
                                     </div>
+                                )}
 
-                                    <div className="space-y-2">
-                                        <Label htmlFor="vehicleModel">Modelo</Label>
+                                <div className="space-y-2">
+                                    <Label htmlFor="password">Contraseña</Label>
+                                    <div className="relative">
+                                        <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                                         <Input
-                                            id="vehicleModel"
-                                            placeholder="Versa 2020"
-                                            value={formData.vehicleModel}
-                                            onChange={(e) => handleChange("vehicleModel", e.target.value)}
+                                            id="password"
+                                            type={showPassword ? "text" : "password"}
+                                            placeholder="Mínimo 6 caracteres"
+                                            value={formData.password}
+                                            onChange={(e) => handleChange("password", e.target.value)}
+                                            className="pl-10 pr-10"
+                                            required
+                                            minLength={6}
                                         />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowPassword(!showPassword)}
+                                            className="absolute right-3 top-3 text-muted-foreground hover:text-foreground"
+                                        >
+                                            {showPassword ? (
+                                                <EyeOff className="h-4 w-4" />
+                                            ) : (
+                                                <Eye className="h-4 w-4" />
+                                            )}
+                                        </button>
                                     </div>
                                 </div>
 
                                 <div className="space-y-2">
-                                    <Label htmlFor="vehicleColor">Color</Label>
-                                    <Input
-                                        id="vehicleColor"
-                                        placeholder="Blanco, Verde, Rojo"
-                                        value={formData.vehicleColor}
-                                        onChange={(e) => handleChange("vehicleColor", e.target.value)}
-                                    />
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="vehiclePlate">Placas</Label>
+                                    <Label htmlFor="confirmPassword">Confirmar contraseña</Label>
+                                    <div className="relative">
+                                        <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                                         <Input
-                                            id="vehiclePlate"
-                                            placeholder="ABC-1234"
-                                            value={formData.vehiclePlate}
-                                            onChange={(e) => handleChange("vehiclePlate", e.target.value)}
-                                        />
-                                    </div>
-
-                                    <div className="space-y-2">
-                                        <Label htmlFor="taxiNumber">Número de Taxi</Label>
-                                        <Input
-                                            id="taxiNumber"
-                                            placeholder="1234"
-                                            value={formData.taxiNumber}
-                                            onChange={(e) => handleChange("taxiNumber", e.target.value)}
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Vehicle Data Section - MANDADITO (Motorcycle) */}
-                        {formData.role === "mandadito" && (
-                            <div className="mt-6 pt-6 border-t-2 border-orange-200 space-y-4">
-                                <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                                    🏍️ Datos de la Motocicleta
-                                </h3>
-                                <p className="text-sm text-muted-foreground">
-                                    Marca, modelo y color son obligatorios
-                                </p>
-
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="vehicleBrand">Marca *</Label>
-                                        <Input
-                                            id="vehicleBrand"
-                                            placeholder="Honda, Italika, Yamaha"
-                                            value={formData.vehicleBrand}
-                                            onChange={(e) => handleChange("vehicleBrand", e.target.value)}
+                                            id="confirmPassword"
+                                            type={showPassword ? "text" : "password"}
+                                            placeholder="Repite tu contraseña"
+                                            value={formData.confirmPassword}
+                                            onChange={(e) => handleChange("confirmPassword", e.target.value)}
+                                            className="pl-10 pr-10"
                                             required
                                         />
-                                    </div>
-
-                                    <div className="space-y-2">
-                                        <Label htmlFor="vehicleModel">Modelo *</Label>
-                                        <Input
-                                            id="vehicleModel"
-                                            placeholder="FT 150, Vento 2022"
-                                            value={formData.vehicleModel}
-                                            onChange={(e) => handleChange("vehicleModel", e.target.value)}
-                                            required
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="space-y-2">
-                                    <Label htmlFor="vehicleColor">Color *</Label>
-                                    <Input
-                                        id="vehicleColor"
-                                        placeholder="Negro, Rojo, Azul"
-                                        value={formData.vehicleColor}
-                                        onChange={(e) => handleChange("vehicleColor", e.target.value)}
-                                        required
-                                    />
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="vehiclePlate">Placas (opcional)</Label>
-                                        <Input
-                                            id="vehiclePlate"
-                                            placeholder="M12-ABC"
-                                            value={formData.vehiclePlate}
-                                            onChange={(e) => handleChange("vehiclePlate", e.target.value)}
-                                        />
-                                    </div>
-
-                                    <div className="space-y-2">
-                                        <Label htmlFor="taxiNumber">Número Económico (opcional)</Label>
-                                        <Input
-                                            id="taxiNumber"
-                                            placeholder="123"
-                                            value={formData.taxiNumber}
-                                            onChange={(e) => handleChange("taxiNumber", e.target.value)}
-                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowPassword(!showPassword)}
+                                            className="absolute right-3 top-3 text-muted-foreground hover:text-foreground"
+                                        >
+                                            {showPassword ? (
+                                                <EyeOff className="h-4 w-4" />
+                                            ) : (
+                                                <Eye className="h-4 w-4" />
+                                            )}
+                                        </button>
                                     </div>
                                 </div>
-                            </div>
-                        )}
 
-                        <div className="space-y-2">
-                            <Label htmlFor="password">Contraseña</Label>
-                            <div className="relative">
-                                <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                                <Input
-                                    id="password"
-                                    type={showPassword ? "text" : "password"}
-                                    placeholder="Mínimo 6 caracteres"
-                                    value={formData.password}
-                                    onChange={(e) => handleChange("password", e.target.value)}
-                                    className="pl-10 pr-10"
-                                    required
-                                    minLength={6}
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute right-3 top-3 text-muted-foreground hover:text-foreground"
+                                <Button
+                                    type="submit"
+                                    className="w-full h-12 text-sm font-semibold bg-orange-500 hover:bg-orange-600 text-white rounded-xl shadow-lg shadow-orange-200"
+                                    disabled={loading}
                                 >
-                                    {showPassword ? (
-                                        <EyeOff className="h-4 w-4" />
+                                    {loading ? (
+                                        <>
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                            Enviando código...
+                                        </>
                                     ) : (
-                                        <Eye className="h-4 w-4" />
+                                        "Continuar"
                                     )}
-                                </button>
+                                </Button>
+                            </form>
+
+                            <div className="mt-6 text-center text-sm">
+                                <span className="text-muted-foreground">¿Ya tienes cuenta? </span>
+                                <Link href="/login" className="text-orange-500 font-medium hover:underline">
+                                    Inicia sesión
+                                </Link>
                             </div>
-                        </div>
 
-                        <div className="space-y-2">
-                            <Label htmlFor="confirmPassword">Confirmar contraseña</Label>
-                            <div className="relative">
-                                <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                                <Input
-                                    id="confirmPassword"
-                                    type={showPassword ? "text" : "password"}
-                                    placeholder="Repite tu contraseña"
-                                    value={formData.confirmPassword}
-                                    onChange={(e) => handleChange("confirmPassword", e.target.value)}
-                                    className="pl-10 pr-10"
-                                    required
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute right-3 top-3 text-muted-foreground hover:text-foreground"
-                                >
-                                    {showPassword ? (
-                                        <EyeOff className="h-4 w-4" />
-                                    ) : (
-                                        <Eye className="h-4 w-4" />
-                                    )}
-                                </button>
+                            <div className="mt-4 text-center">
+                                <Link href="/" className="text-sm text-muted-foreground hover:text-orange-500">
+                                    ← Volver al inicio
+                                </Link>
                             </div>
-                        </div>
-
-                        <Button type="submit" className="w-full" disabled={loading}>
-                            {loading ? (
-                                <>
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                    Enviando código...
-                                </>
-                            ) : (
-                                "Continuar"
-                            )}
-                        </Button>
-                    </form>
-
-                    <div className="mt-6 text-center text-sm">
-                        <span className="text-muted-foreground">¿Ya tienes cuenta? </span>
-                        <Link href="/login" className="text-primary font-medium hover:underline">
-                            Inicia sesión
-                        </Link>
-                    </div>
-
-                    <div className="mt-4 text-center">
-                        <Link href="/" className="text-sm text-muted-foreground hover:text-primary">
-                            ← Volver al inicio
-                        </Link>
-                    </div>
-                </CardContent>
-            </Card>
+                        </CardContent>
+                    </Card>
+                </div>
+            </div>
         </div>
     );
 }
