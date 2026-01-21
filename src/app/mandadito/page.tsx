@@ -76,23 +76,49 @@ export default function MandaditoHomePage() {
                     }
                 }
 
-                // Fetch today's stats
+                // Fetch today's stats - Include BOTH mandadito and moto_ride
                 const today = new Date();
                 today.setHours(0, 0, 0, 0);
 
                 const { data: trips } = await supabase
                     .from("service_requests")
-                    .select("final_price")
+                    .select("final_price, service_type")
                     .eq("assigned_driver_id", user.id)
                     .eq("status", "completed")
-                    .eq("service_type", "mandadito")
+                    .in("service_type", ["mandadito", "moto_ride"])
                     .gte("completed_at", today.toISOString());
 
+                // Fetch today's active time from availability sessions
+                const { data: sessions } = await supabase
+                    .from("driver_availability_sessions")
+                    .select("started_at, ended_at")
+                    .eq("driver_id", user.id)
+                    .gte("started_at", today.toISOString());
+
+                // Calculate total active minutes today
+                let totalActiveMinutes = 0;
+                if (sessions) {
+                    const now = new Date();
+                    sessions.forEach((session: any) => {
+                        const start = new Date(session.started_at);
+                        const end = session.ended_at ? new Date(session.ended_at) : now;
+                        totalActiveMinutes += (end.getTime() - start.getTime()) / (1000 * 60);
+                    });
+                }
+
                 if (trips) {
+                    // Calculate NET earnings (after deducting app commission)
+                    // Commission: $3 for mandadito, $5 for moto_ride
+                    const netEarnings = trips.reduce((acc, t) => {
+                        const commission = t.service_type === 'moto_ride' ? 5 : 3;
+                        const driverEarnings = (t.final_price || 0) - commission;
+                        return acc + Math.max(0, driverEarnings);
+                    }, 0);
+
                     setTodayStats({
                         trips: trips.length,
-                        earnings: trips.reduce((acc, t) => acc + (t.final_price || 0), 0),
-                        hours: Math.round((trips.length * 25) / 60),
+                        earnings: netEarnings,
+                        hours: Math.round(totalActiveMinutes / 60), // Real active hours
                     });
                 }
             }
@@ -246,7 +272,7 @@ export default function MandaditoHomePage() {
                         ? "Tu cuenta está siendo revisada por un administrador. Te notificaremos cuando esté aprobada."
                         : kycStatus === "rejected"
                             ? "Tu solicitud fue rechazada. Por favor contacta al soporte para más información."
-                            : "Para empezar a recibir mandados, necesitas subir tus documentos de verificación."}
+                            : "Para empezar a recibir servicios, necesitas subir tus documentos de verificación."}
                 </p>
 
                 {kycStatus === "not_submitted" && (
@@ -278,15 +304,43 @@ export default function MandaditoHomePage() {
         );
     }
 
-    // Toggle availability in DB
+    // Toggle availability in DB and track session
     const handleAvailabilityChange = async (available: boolean) => {
         setIsAvailable(available);
         const user = (await supabase.auth.getUser()).data.user;
         if (user) {
+            // Update user availability
             await supabase
                 .from("users")
                 .update({ is_available: available })
                 .eq("id", user.id);
+
+            if (available) {
+                // Starting a new availability session
+                await supabase
+                    .from("driver_availability_sessions")
+                    .insert({
+                        driver_id: user.id,
+                        started_at: new Date().toISOString()
+                    });
+            } else {
+                // Ending the current session - find the open one and close it
+                const { data: openSession } = await supabase
+                    .from("driver_availability_sessions")
+                    .select("id")
+                    .eq("driver_id", user.id)
+                    .is("ended_at", null)
+                    .order("started_at", { ascending: false })
+                    .limit(1)
+                    .maybeSingle();
+
+                if (openSession) {
+                    await supabase
+                        .from("driver_availability_sessions")
+                        .update({ ended_at: new Date().toISOString() })
+                        .eq("id", openSession.id);
+                }
+            }
         }
     };
 
@@ -339,7 +393,7 @@ export default function MandaditoHomePage() {
                                     {isAvailable ? "¡Estás activo!" : "Desconectado"}
                                 </p>
                                 <p className="text-xs text-gray-500">
-                                    {isAvailable ? "Recibiendo solicitudes de mandados" : "Activa el switch para conectarte"}
+                                    {isAvailable ? "Recibiendo solicitudes" : "Activa el switch para conectarte"}
                                 </p>
                             </div>
                         </div>
@@ -360,7 +414,7 @@ export default function MandaditoHomePage() {
                             <Package className="h-4 w-4 text-orange-500" />
                         </div>
                         <p className="text-xl font-bold text-gray-900 text-center">{todayStats.trips}</p>
-                        <p className="text-[10px] text-gray-500 text-center">Entregas</p>
+                        <p className="text-[10px] text-gray-500 text-center">Servicios</p>
                     </Card>
                     <Card className="p-3 bg-white shadow-sm border-0 rounded-xl">
                         <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-2">
@@ -390,7 +444,7 @@ export default function MandaditoHomePage() {
                             Activa tu disponibilidad
                         </h2>
                         <p className="text-gray-500 text-sm">
-                            Hay mandados esperando cerca de ti. Conecta para empezar a recibir solicitudes.
+                            Hay servicios esperando cerca de ti. Conecta para empezar a recibir solicitudes.
                         </p>
                     </Card>
                 ) : (

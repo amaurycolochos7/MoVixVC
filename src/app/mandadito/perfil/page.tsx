@@ -289,7 +289,44 @@ export default function MandaditoPerfilPage() {
                 </div>
             </div>
 
-            {/* Menu Options */}
+            {/* Contact Support */}
+            <div className="px-4 mt-4">
+                <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+                    <a
+                        href={`https://t.me/MovixSoporte1?text=${encodeURIComponent(
+                            `SOPORTE MOVIX
+
+Tipo de usuario: Conductor Mandadito/Moto Ride
+
+Datos del usuario:
+- Nombre: ${profile.full_name || 'No registrado'}
+- Teléfono: ${profile.phone || 'No registrado'}
+- Correo: ${profile.email || 'No registrado'}
+
+Asunto:
+`
+                        )}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-full flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors"
+                    >
+                        <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-full bg-blue-50 flex items-center justify-center">
+                                <svg className="h-4 w-4 text-blue-500" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69.01-.03.01-.14-.07-.2-.08-.06-.19-.04-.27-.02-.12.03-1.99 1.27-5.62 3.72-.53.36-1.01.54-1.44.53-.47-.01-1.38-.26-2.06-.48-.83-.27-1.49-.42-1.43-.88.03-.24.37-.49 1.02-.74 3.98-1.73 6.64-2.87 7.97-3.43 3.79-1.58 4.58-1.86 5.09-1.87.11 0 .36.03.52.18.14.12.18.28.2.45-.01.07-.01.23-.02.35z" />
+                                </svg>
+                            </div>
+                            <div>
+                                <span className="text-gray-900 font-medium">Contactar Soporte</span>
+                                <p className="text-xs text-gray-500">Quejas, dudas o problemas con la app</p>
+                            </div>
+                        </div>
+                        <ChevronRight className="h-5 w-5 text-gray-300" />
+                    </a>
+                </div>
+            </div>
+
+            {/* Logout */}
             <div className="px-4 mt-4">
                 <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
                     <button

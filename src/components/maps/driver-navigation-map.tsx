@@ -6,10 +6,11 @@ import dynamic from "next/dynamic";
 import { useAnimatedMarker, GPSPoint, Coordinates } from "@/hooks/useAnimatedMarker";
 import { useFollowCamera, useMapInteractionDetector } from "@/hooks/useFollowCamera";
 import { useSmartRoute } from "@/hooks/useSmartRoute";
+import { useDeviceHeading } from "@/hooks/useDeviceHeading";
 import { Button } from "@/components/ui/button";
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || "";
-const MAP_STYLE = "mapbox://styles/mapbox/navigation-day-v1";
+const MAP_STYLE = "mapbox://styles/mapbox/streets-v12"; // Lighter for better performance
 
 // Default center (CDMX) to prevent Null Island (0,0)
 const DEFAULT_CENTER = { lat: 19.4326, lng: -99.1332 };
@@ -83,6 +84,9 @@ export const DriverNavigationMap = forwardRef<DriverNavigationMapRef, DriverNavi
 }, ref) => {
     const mapRef = useRef<any>(null);
 
+    // Device compass heading for map rotation
+    const deviceHeading = useDeviceHeading();
+
     // Animated marker for smooth driver movement
     const animatedDriver = useAnimatedMarker({
         animDurationMs: 2800, // Slightly less than 3s GPS interval
@@ -133,11 +137,21 @@ export const DriverNavigationMap = forwardRef<DriverNavigationMapRef, DriverNavi
         return isValidCoords(target) ? target : DEFAULT_CENTER;
     }, [animatedDriver.position, driverLocation, phase, pickupLocation, dropoffLocation]);
 
+    // Use device compass heading if available, otherwise fall back to GPS bearing
+    const mapBearing = useMemo(() => {
+        // Prefer compass heading for real-time rotation
+        if (deviceHeading.isSupported && deviceHeading.heading !== null) {
+            return deviceHeading.heading;
+        }
+        // Fall back to GPS-based bearing
+        return animatedDriver.bearing;
+    }, [deviceHeading.heading, deviceHeading.isSupported, animatedDriver.bearing]);
+
     // Camera follow mode - 3D navigation view with auto-rotation
     const followCamera = useFollowCamera({
         mapRef,
         targetPosition: cameraTarget,
-        targetBearing: animatedDriver.bearing, // Follow rotation - map rotates with driver heading
+        targetBearing: mapBearing, // Use compass or GPS heading
         enabled: hasDriverLocation,
         zoom: 17, // Closer zoom for navigation
         pitch: 45, // 3D perspective for better orientation

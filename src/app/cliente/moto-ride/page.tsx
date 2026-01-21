@@ -158,26 +158,65 @@ export default function TaxiWizardPage() {
         };
     }, [createdRequestId, router]);
 
-    // Countdown timer
+    // Countdown timer - uses server time for sync with driver
     useEffect(() => {
         if (!createdRequestId || requestExpired) return;
 
-        setCountdown(70);
-        const startTime = Date.now();
+        const fetchServerCountdown = async () => {
+            try {
+                // Get server time
+                const { data: serverTime } = await supabase.rpc('get_server_time');
 
-        const timer = setInterval(() => {
-            const elapsed = Math.floor((Date.now() - startTime) / 1000);
-            const remaining = Math.max(0, 70 - elapsed);
-            setCountdown(remaining);
+                // Get request data
+                const { data: requestData } = await supabase
+                    .from("service_requests")
+                    .select("request_expires_at, created_at")
+                    .eq("id", createdRequestId)
+                    .single();
 
-            if (remaining <= 0) {
-                clearInterval(timer);
-                setRequestExpired(true);
-                toast.error("Solicitud expirada - Ningún conductor aceptó");
+                if (requestData && serverTime) {
+                    // Calculate remaining using server time
+                    const serverNow = new Date(serverTime).getTime();
+                    const expiresAt = new Date(requestData.request_expires_at).getTime();
+                    const initialRemaining = Math.max(0, Math.ceil((expiresAt - serverNow) / 1000));
+
+                    setCountdown(initialRemaining);
+                    const mountTime = Date.now();
+                    console.log(`⏱️ [CLIENT MOTO] Server remaining_seconds: ${initialRemaining}`);
+
+                    const timer = setInterval(() => {
+                        const elapsedSinceMount = (Date.now() - mountTime) / 1000;
+                        const remaining = Math.max(0, Math.round(initialRemaining - elapsedSinceMount));
+                        setCountdown(remaining);
+
+                        if (remaining <= 0) {
+                            clearInterval(timer);
+                            setRequestExpired(true);
+                            toast.error("Solicitud expirada - Ningún conductor aceptó");
+                        }
+                    }, 1000);
+
+                    return () => clearInterval(timer);
+                }
+            } catch (err) {
+                console.error('Error fetching server time:', err);
+                // Fallback to local countdown
+                setCountdown(70);
+                const startTime = Date.now();
+                const timer = setInterval(() => {
+                    const elapsed = Math.floor((Date.now() - startTime) / 1000);
+                    const remaining = Math.max(0, 70 - elapsed);
+                    setCountdown(remaining);
+                    if (remaining <= 0) {
+                        clearInterval(timer);
+                        setRequestExpired(true);
+                    }
+                }, 1000);
+                return () => clearInterval(timer);
             }
-        }, 1000);
+        };
 
-        return () => clearInterval(timer);
+        fetchServerCountdown();
     }, [createdRequestId]);
 
     const handleTryAgain = () => {

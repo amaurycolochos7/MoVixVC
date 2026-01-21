@@ -73,46 +73,43 @@ export function Radar({ serviceType, isAvailable }: RadarProps) {
 
     /* Removed initial status check - parent handles auth/status checks implicitly or explicitly */
 
-    // Initial Fetch - smarter to prevent re-renders when data hasn't changed
+    // Initial Fetch - uses RPC for server-calculated remaining_seconds
     const fetchRequests = async (isPolling = false) => {
         // Only show loading on initial fetch, not on polling
         if (!isPolling) setLoading(true);
 
         try {
-            let query = supabase
-                .from("service_requests")
-                .select(`
-                    *,
-                    request_stops (
-                        id,
-                        stop_order,
-                        address,
-                        instructions,
-                        stop_items (
-                            id,
-                            item_name,
-                            quantity
-                        )
-                    )
-                `)
-                .in("status", ["pending", "negotiating"])
-                .eq("municipio", "Venustiano Carranza") // Local Filter MVP
-                .gt("request_expires_at", new Date().toISOString()) // Filter expired
-                .order("created_at", { ascending: false });
+            // Determine service types to fetch
+            const serviceTypes = serviceType === 'mandadito'
+                ? ['mandadito', 'moto_ride']
+                : serviceType
+                    ? [serviceType]
+                    : ['mandadito', 'moto_ride', 'taxi'];
 
-            if (serviceType) {
-                // Mandadito drivers see both 'mandadito' and 'moto_ride'
-                // Taxi drivers only see 'taxi'
-                if (serviceType === 'mandadito') {
-                    query = query.in("service_type", ["mandadito", "moto_ride"]);
-                } else {
-                    query = query.eq("service_type", serviceType);
+            // Use RPC function for server-calculated remaining_seconds
+            const { data, error } = await supabase.rpc('get_pending_requests_with_countdown', {
+                p_municipio: 'Venustiano Carranza',
+                p_service_types: serviceTypes
+            });
+
+            if (error) {
+                // Fallback to regular query if RPC fails
+                console.warn('RPC failed, falling back to regular query:', error.message);
+                const fallbackQuery = await supabase
+                    .from("service_requests")
+                    .select(`*, mandadito_type, request_stops (id, stop_order, address, instructions, stop_items (id, item_name, quantity))`)
+                    .in("status", ["pending", "negotiating"])
+                    .eq("municipio", "Venustiano Carranza")
+                    .gt("request_expires_at", new Date().toISOString())
+                    .in("service_type", serviceTypes)
+                    .order("created_at", { ascending: false });
+
+                if (fallbackQuery.error) throw fallbackQuery.error;
+                if (fallbackQuery.data) {
+                    setRequests(fallbackQuery.data);
                 }
+                return;
             }
-
-            const { data, error } = await query;
-
-            if (error) throw error;
 
             // Only update if data actually changed (prevents modal from closing)
             if (data) {
@@ -122,7 +119,8 @@ export function Radar({ serviceType, isAvailable }: RadarProps) {
                     if (prevIds !== newIds) {
                         return data;
                     }
-                    return prev;
+                    // Update remaining_seconds even if IDs are same
+                    return data;
                 });
             }
         } catch (err) {
@@ -370,9 +368,8 @@ export function Radar({ serviceType, isAvailable }: RadarProps) {
             }
 
             console.log("✅ Assignment successful via RPC:", rpcResult);
-            toast.success("¡Servicio aceptado!");
 
-            // Navigate to service execution page based on service type
+            // Navigate immediately to service execution page
             let servicePath: string;
             if (req.service_type === "moto_ride") {
                 servicePath = `/moto-ride/servicio/${req.id}`;
@@ -381,7 +378,9 @@ export function Radar({ serviceType, isAvailable }: RadarProps) {
             } else {
                 servicePath = `/taxi/servicio/${req.id}`;
             }
-            router.push(servicePath);
+
+            // Use replace for instant navigation without adding to history
+            router.replace(servicePath);
 
         } catch (err: any) {
             console.error("❌ handleDirectAccept error:", err);

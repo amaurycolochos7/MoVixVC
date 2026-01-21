@@ -107,7 +107,7 @@ export function BoardingPinModal({ open, onClose, onValidate, pinLength = 4 }: B
                     {/* Info adicional */}
                     <div className={`${isMotoRide ? 'bg-orange-50 border-orange-100' : 'bg-blue-50 border-blue-100'} border rounded-lg p-3`}>
                         <p className={`text-xs ${isMotoRide ? 'text-orange-700' : 'text-blue-700'} text-center`}>
-                            ℹ️ El cliente puede ver su código en la pantalla de seguimiento
+                            El cliente puede ver su código en la pantalla de seguimiento
                         </p>
                     </div>
                 </div>

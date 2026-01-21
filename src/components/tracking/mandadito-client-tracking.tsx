@@ -48,7 +48,7 @@ export function MandaditoClientTracking({ requestId, request, driver, vehicle }:
     const [loading, setLoading] = useState(true);
     const [showCancelModal, setShowCancelModal] = useState(false);
     const [cancelling, setCancelling] = useState(false);
-    const [hasRedirected, setHasRedirected] = useState(false);
+    const redirectRef = useRef(false); // Prevent multiple redirects
 
     // Determine if this is a moto_ride service
     const isMotoRide = request.service_type === 'moto_ride';
@@ -118,8 +118,8 @@ export function MandaditoClientTracking({ requestId, request, driver, vehicle }:
                         toast.success("¡El mandadito va en camino a tu domicilio!");
                     } else if (payload.new.status === 'completed') {
                         const msg = isMotoRide
-                            ? "¡Viaje completado! Gracias por viajar con nosotros 🏍️"
-                            : "¡Servicio completado! Gracias por tu compra 🎉";
+                            ? "¡Viaje completado! Gracias por viajar con nosotros"
+                            : "¡Servicio completado! Gracias por tu compra";
                         toast.success(msg, {
                             duration: 3000,
                         });
@@ -150,23 +150,26 @@ export function MandaditoClientTracking({ requestId, request, driver, vehicle }:
         };
     }, [requestId]);
 
-    // Handle completed status with proper redirect - MUST be before any conditional returns
+    // Auto-redirect on completion - uses ref to prevent infinite loops
     useEffect(() => {
-        if (request.status === 'completed' && !hasRedirected) {
-            setHasRedirected(true);
+        if (request.status === 'completed' && !redirectRef.current) {
+            redirectRef.current = true; // Mark as redirected immediately
+
+            // Show toast notification
             const msg = isMotoRide
-                ? "¡Viaje completado! Gracias por viajar con nosotros 🏍️"
-                : "¡Servicio completado! Gracias por tu compra 🎉";
+                ? "¡Viaje completado! Gracias por viajar con nosotros"
+                : "¡Servicio completado! Gracias por tu compra";
             toast.success(msg, { duration: 2000 });
 
-            // Force hard redirect after 2 seconds - more reliable than router.push
+            // Redirect after showing completion message
             const timer = setTimeout(() => {
-                window.location.replace('/cliente');
-            }, 2000);
+                window.location.href = '/cliente';
+            }, 2500);
 
             return () => clearTimeout(timer);
         }
-    }, [request.status, hasRedirected, isMotoRide]);
+    }, [request.status, isMotoRide]);
+
 
     // Cancel service handler - Uses RPC to properly free driver
     const handleCancelService = async () => {
@@ -196,14 +199,7 @@ export function MandaditoClientTracking({ requestId, request, driver, vehicle }:
 
     // If completed, redirect immediately
     if (request.status === 'completed') {
-        // Force immediate redirect
-        if (!hasRedirected) {
-            setHasRedirected(true);
-            setTimeout(() => {
-                window.location.href = '/cliente';
-            }, 1500);
-        }
-
+        // Show completion screen when service is completed
         return (
             <div className="flex items-center justify-center h-screen bg-white">
                 <div className="text-center px-6">
@@ -212,10 +208,12 @@ export function MandaditoClientTracking({ requestId, request, driver, vehicle }:
                         {isMotoRide ? "¡Viaje Completado!" : "¡Servicio Completado!"}
                     </h1>
                     <p className="text-gray-600 mb-6">
-                        {isMotoRide ? "Gracias por viajar con nosotros 🏍️" : "Gracias por tu compra 🎉"}
+                        {isMotoRide ? "Gracias por viajar con nosotros" : "Gracias por tu compra"}
                     </p>
                     <Button
-                        onClick={() => window.location.href = '/cliente'}
+                        onClick={() => {
+                            window.location.href = '/cliente';
+                        }}
                         className="w-full h-12 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-xl"
                     >
                         Volver al inicio
@@ -341,7 +339,11 @@ export function MandaditoClientTracking({ requestId, request, driver, vehicle }:
                         <Button
                             size="sm"
                             className="bg-white text-orange-600 hover:bg-orange-50 h-8 px-3 text-xs font-medium"
-                            onClick={() => window.open(`tel:${driver?.phone}`)}
+                            onClick={() => {
+                                if (driver?.phone) {
+                                    window.location.href = `tel:${driver.phone}`;
+                                }
+                            }}
                         >
                             <Phone className="h-3.5 w-3.5 mr-1" />
                             Llamar
@@ -778,7 +780,11 @@ function MotoRideClientTrackingView({
                             <Button
                                 size="sm"
                                 className="bg-white text-orange-600 hover:bg-orange-50 h-8 px-3"
-                                onClick={() => window.open(`tel:${driver?.phone}`)}
+                                onClick={() => {
+                                    if (driver?.phone) {
+                                        window.location.href = `tel:${driver.phone}`;
+                                    }
+                                }}
                             >
                                 <Phone className="h-4 w-4 mr-1" />
                                 Llamar

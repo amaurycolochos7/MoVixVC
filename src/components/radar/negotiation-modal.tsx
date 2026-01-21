@@ -357,92 +357,252 @@ export function NegotiationModal({ request, driverLocation, onClose, onAccept }:
                         </div>
                     </div>
                 ) : request.service_type === 'mandadito' ? (
-                    /* MANDADITO: Shopping List */
+                    /* MANDADITO: Different views for shopping vs delivery */
                     <div className="space-y-4">
-                        {/* Shopping Stops Section */}
-                        <div className="bg-orange-500/10 border border-orange-500/30 rounded-xl p-4">
-                            <p className="text-orange-400 font-bold text-sm mb-3 flex items-center gap-2">
-                                🛒 Lista de compras ({stops.length} parada{stops.length !== 1 ? 's' : ''})
-                            </p>
-                            <div className="space-y-4">
-                                {stops.map((stop: any, idx: number) => (
-                                    <div
-                                        key={stop.id || idx}
-                                        className="bg-slate-800/50 rounded-lg p-3 cursor-pointer active:scale-95 transition-transform hover:bg-slate-800 border border-transparent hover:border-orange-500/50"
-                                        onClick={() => {
-                                            setSelectedStop(stop);
-                                            setSelectedStopIndex(idx);
-                                        }}
-                                    >
-                                        <div className="flex items-center justify-between mb-2">
-                                            <div className="flex items-center gap-2">
-                                                <span className="w-6 h-6 rounded-full bg-orange-500 text-white text-xs flex items-center justify-center font-bold shadow-lg shadow-orange-900/20">
-                                                    {idx + 1}
+                        {/* Check if it's a delivery (package pickup/dropoff) or shopping */}
+                        {request.mandadito_type === 'delivery' ? (
+                            /* DELIVERY: Pickup -> Dropoff Timeline (like moto_ride) */
+                            <div className="space-y-0 pl-2">
+                                {/* Pickup Point */}
+                                <div
+                                    className="flex items-start gap-3 relative cursor-pointer active:scale-[0.98] transition-transform"
+                                    onClick={() => {
+                                        if (request.origin_lat && request.origin_lng) {
+                                            setMapLocation({ lat: request.origin_lat, lng: request.origin_lng });
+                                            setShowMap(true);
+                                        }
+                                    }}
+                                >
+                                    <div className="flex flex-col items-center">
+                                        <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center mb-1 z-10 bg-slate-900">
+                                            <div className="w-4 h-4 rounded-full bg-blue-500 shadow-lg shadow-blue-500/50" />
+                                        </div>
+                                        <div className="w-0.5 h-full min-h-[48px] bg-gradient-to-b from-blue-500 to-green-500 absolute top-8 left-4 -translate-x-1/2" />
+                                    </div>
+                                    <div className="flex-1 pb-4">
+                                        <div className="flex items-center justify-between mb-1">
+                                            <span className="text-blue-400 text-xs font-bold uppercase tracking-wider">RECOGER PAQUETE</span>
+                                            {request.origin_lat && request.origin_lng && (
+                                                <span className="text-[10px] bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full border border-blue-500/30">
+                                                    Ver mapa
                                                 </span>
-                                                <p className="text-white font-semibold line-clamp-1">{stop.address || 'Tienda sin nombre'}</p>
-                                            </div>
-                                            <span className="text-[10px] bg-orange-500/20 text-orange-300 px-2 py-0.5 rounded-full border border-orange-500/30">
-                                                Ver detalle
+                                            )}
+                                        </div>
+                                        <p className="text-white font-semibold text-lg">{request.origin_address || request.origin_neighborhood || "Ubicación GPS"}</p>
+                                        {request.origin_references && (
+                                            <p className="text-slate-400 text-sm mt-1 bg-slate-800/50 p-2 rounded-lg border border-slate-800">
+                                                {request.origin_references}
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Dropoff Point */}
+                                <div
+                                    className="flex items-start gap-3 cursor-pointer active:scale-[0.98] transition-transform"
+                                    onClick={() => {
+                                        if (request.delivery_lat && request.delivery_lng) {
+                                            setMapLocation({ lat: request.delivery_lat, lng: request.delivery_lng });
+                                            setShowMap(true);
+                                        } else if (request.destination_lat && request.destination_lng) {
+                                            setMapLocation({ lat: request.destination_lat, lng: request.destination_lng });
+                                            setShowMap(true);
+                                        }
+                                    }}
+                                >
+                                    <div className="flex flex-col items-center">
+                                        <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center z-10 bg-slate-900">
+                                            <div className="w-4 h-4 rounded-full bg-green-500 shadow-lg shadow-green-500/50" />
+                                        </div>
+                                    </div>
+                                    <div className="flex-1">
+                                        <div className="flex items-center justify-between mb-1">
+                                            <span className="text-green-400 text-xs font-bold uppercase tracking-wider">ENTREGAR EN</span>
+                                            <span className="text-[10px] bg-green-500/20 text-green-300 px-2 py-0.5 rounded-full border border-green-500/30">
+                                                Ver mapa
                                             </span>
                                         </div>
-                                        {stop.instructions && (
-                                            <p className="text-slate-400 text-xs mb-2 ml-8 line-clamp-1">📝 {stop.instructions}</p>
+                                        <p className="text-white font-semibold text-lg">
+                                            {request.delivery_address || request.destination_address || "Destino"}
+                                        </p>
+                                        {request.delivery_references && (
+                                            <p className="text-slate-400 text-sm mt-1 bg-slate-800/50 p-2 rounded-lg border border-slate-800">
+                                                {request.delivery_references}
+                                            </p>
                                         )}
-                                        {stop.stop_items && stop.stop_items.length > 0 ? (
-                                            <div className="ml-8 space-y-1">
-                                                <p className="text-slate-400 text-xs font-medium">Productos ({stop.stop_items.length}):</p>
-                                                {stop.stop_items.slice(0, 2).map((item: any, iIdx: number) => (
-                                                    <div key={iIdx} className="flex items-center justify-between text-sm">
-                                                        <span className="text-white line-clamp-1">• {item.item_name}</span>
-                                                        <span className="text-orange-400 font-medium whitespace-nowrap">x{item.quantity}</span>
-                                                    </div>
-                                                ))}
-                                                {stop.stop_items.length > 2 && (
-                                                    <p className="text-xs text-slate-500 italic">+ {stop.stop_items.length - 2} productos más...</p>
+                                    </div>
+                                </div>
+                            </div>
+                        ) : request.mandadito_type === 'payment' ? (
+                            /* PAYMENT: Pickup money -> Pay at location */
+                            <div className="space-y-4">
+                                {/* Timeline */}
+                                <div className="space-y-0 pl-2">
+                                    {/* Pickup Point - Where to get money */}
+                                    <div
+                                        className="flex items-start gap-3 relative cursor-pointer active:scale-[0.98] transition-transform"
+                                        onClick={() => {
+                                            if (request.origin_lat && request.origin_lng) {
+                                                setMapLocation({ lat: request.origin_lat, lng: request.origin_lng });
+                                                setShowMap(true);
+                                            }
+                                        }}
+                                    >
+                                        <div className="flex flex-col items-center">
+                                            <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center mb-1 z-10 bg-slate-900">
+                                                <div className="w-4 h-4 rounded-full bg-blue-500 shadow-lg shadow-blue-500/50" />
+                                            </div>
+                                            <div className="w-0.5 h-full min-h-[48px] bg-gradient-to-b from-blue-500 to-green-500 absolute top-8 left-4 -translate-x-1/2" />
+                                        </div>
+                                        <div className="flex-1 pb-4">
+                                            <div className="flex items-center justify-between mb-1">
+                                                <span className="text-blue-400 text-xs font-bold uppercase tracking-wider">RECOGER DINERO</span>
+                                                {request.origin_lat && request.origin_lng && (
+                                                    <span className="text-[10px] bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full border border-blue-500/30">
+                                                        Ver mapa
+                                                    </span>
                                                 )}
                                             </div>
-                                        ) : (
-                                            <p className="text-slate-500 text-xs ml-8 italic">0 productos (Verifica permiso DB)</p>
+                                            <p className="text-white font-semibold text-lg">{request.origin_address || "Ubicación del cliente"}</p>
+                                        </div>
+                                    </div>
+
+                                    {/* Payment Point */}
+                                    <div
+                                        className="flex items-start gap-3 cursor-pointer active:scale-[0.98] transition-transform"
+                                        onClick={() => {
+                                            if (request.delivery_lat && request.delivery_lng) {
+                                                setMapLocation({ lat: request.delivery_lat, lng: request.delivery_lng });
+                                                setShowMap(true);
+                                            } else if (request.destination_lat && request.destination_lng) {
+                                                setMapLocation({ lat: request.destination_lat, lng: request.destination_lng });
+                                                setShowMap(true);
+                                            }
+                                        }}
+                                    >
+                                        <div className="flex flex-col items-center">
+                                            <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center z-10 bg-slate-900">
+                                                <div className="w-4 h-4 rounded-full bg-green-500 shadow-lg shadow-green-500/50" />
+                                            </div>
+                                        </div>
+                                        <div className="flex-1">
+                                            <div className="flex items-center justify-between mb-1">
+                                                <span className="text-green-400 text-xs font-bold uppercase tracking-wider">PAGAR EN</span>
+                                                <span className="text-[10px] bg-green-500/20 text-green-300 px-2 py-0.5 rounded-full border border-green-500/30">
+                                                    Ver mapa
+                                                </span>
+                                            </div>
+                                            <p className="text-white font-semibold text-lg">
+                                                {request.delivery_address || request.destination_address || "Lugar de pago"}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Payment Details Card */}
+                                <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-4">
+                                    <p className="text-green-400 font-bold text-sm mb-3">DETALLES DEL PAGO</p>
+                                    <div className="space-y-2">
+                                        {request.notes && (
+                                            <p className="text-white text-sm">{request.notes}</p>
+                                        )}
+                                        {request.delivery_references && (
+                                            <p className="text-slate-300 text-sm bg-slate-800/50 p-2 rounded-lg">
+                                                {request.delivery_references}
+                                            </p>
                                         )}
                                     </div>
-                                ))}
-                                {(!request.request_stops || request.request_stops.length === 0) && (
-                                    <div className="text-center p-4">
-                                        <p className="text-slate-400 text-sm">No hay paradas visibles</p>
-                                        <p className="text-slate-600 text-xs mt-1">Si deberían haber, ejecuta la migración SQL 035</p>
+                                </div>
+                            </div>
+                        ) : (
+                            /* SHOPPING: Shopping List */
+                            <>
+                                {/* Shopping Stops Section */}
+                                <div className="bg-orange-500/10 border border-orange-500/30 rounded-xl p-4">
+                                    <p className="text-orange-400 font-bold text-sm mb-3 flex items-center gap-2">
+                                        Lista de compras ({stops.length} parada{stops.length !== 1 ? 's' : ''})
+                                    </p>
+                                    <div className="space-y-4">
+                                        {stops.map((stop: any, idx: number) => (
+                                            <div
+                                                key={stop.id || idx}
+                                                className="bg-slate-800/50 rounded-lg p-3 cursor-pointer active:scale-95 transition-transform hover:bg-slate-800 border border-transparent hover:border-orange-500/50"
+                                                onClick={() => {
+                                                    setSelectedStop(stop);
+                                                    setSelectedStopIndex(idx);
+                                                }}
+                                            >
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="w-6 h-6 rounded-full bg-orange-500 text-white text-xs flex items-center justify-center font-bold shadow-lg shadow-orange-900/20">
+                                                            {idx + 1}
+                                                        </span>
+                                                        <p className="text-white font-semibold line-clamp-1">{stop.address || 'Tienda sin nombre'}</p>
+                                                    </div>
+                                                    <span className="text-[10px] bg-orange-500/20 text-orange-300 px-2 py-0.5 rounded-full border border-orange-500/30">
+                                                        Ver detalle
+                                                    </span>
+                                                </div>
+                                                {stop.instructions && (
+                                                    <p className="text-slate-400 text-xs mb-2 ml-8 line-clamp-1">{stop.instructions}</p>
+                                                )}
+                                                {stop.stop_items && stop.stop_items.length > 0 ? (
+                                                    <div className="ml-8 space-y-1">
+                                                        <p className="text-slate-400 text-xs font-medium">Productos ({stop.stop_items.length}):</p>
+                                                        {stop.stop_items.slice(0, 2).map((item: any, iIdx: number) => (
+                                                            <div key={iIdx} className="flex items-center justify-between text-sm">
+                                                                <span className="text-white line-clamp-1">• {item.item_name}</span>
+                                                                <span className="text-orange-400 font-medium whitespace-nowrap">x{item.quantity}</span>
+                                                            </div>
+                                                        ))}
+                                                        {stop.stop_items.length > 2 && (
+                                                            <p className="text-xs text-slate-500 italic">+ {stop.stop_items.length - 2} productos más...</p>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    <p className="text-slate-500 text-xs ml-8 italic">0 productos (Verifica permiso DB)</p>
+                                                )}
+                                            </div>
+                                        ))}
+                                        {(!request.request_stops || request.request_stops.length === 0) && (
+                                            <div className="text-center p-4">
+                                                <p className="text-slate-400 text-sm">No hay paradas visibles</p>
+                                                <p className="text-slate-600 text-xs mt-1">Si deberían haber, ejecuta la migración SQL 035</p>
+                                            </div>
+                                        )}
                                     </div>
-                                )}
-                            </div>
-                        </div>
+                                </div>
 
-                        {/* Delivery Address */}
-                        <div
-                            className="bg-green-500/10 border border-green-500/30 rounded-xl p-4 cursor-pointer active:scale-95 transition-transform hover:bg-green-500/20"
-                            onClick={() => {
-                                if (request.delivery_lat && request.delivery_lng) {
-                                    setMapLocation({ lat: request.delivery_lat, lng: request.delivery_lng });
-                                    setShowMap(true);
-                                } else if (request.destination_lat && request.destination_lng) {
-                                    setMapLocation({ lat: request.destination_lat, lng: request.destination_lng });
-                                    setShowMap(true);
-                                }
-                            }}
-                        >
-                            <div className="flex items-center justify-between mb-2">
-                                <p className="text-green-400 font-bold text-sm flex items-center gap-2">
-                                    📍 Entregar en:
-                                </p>
-                                <span className="text-[10px] bg-green-500/20 text-green-300 px-2 py-0.5 rounded-full border border-green-500/30">
-                                    Ver mapa
-                                </span>
-                            </div>
-                            <p className="text-white font-semibold">
-                                {request.delivery_address || request.destination_address || request.origin_address || 'Dirección no especificada'}
-                            </p>
-                            {request.delivery_references && (
-                                <p className="text-slate-400 text-sm mt-1">📝 {request.delivery_references}</p>
-                            )}
-                        </div>
+                                {/* Delivery Address */}
+                                <div
+                                    className="bg-green-500/10 border border-green-500/30 rounded-xl p-4 cursor-pointer active:scale-95 transition-transform hover:bg-green-500/20"
+                                    onClick={() => {
+                                        if (request.delivery_lat && request.delivery_lng) {
+                                            setMapLocation({ lat: request.delivery_lat, lng: request.delivery_lng });
+                                            setShowMap(true);
+                                        } else if (request.destination_lat && request.destination_lng) {
+                                            setMapLocation({ lat: request.destination_lat, lng: request.destination_lng });
+                                            setShowMap(true);
+                                        }
+                                    }}
+                                >
+                                    <div className="flex items-center justify-between mb-2">
+                                        <p className="text-green-400 font-bold text-sm flex items-center gap-2">
+                                            Entregar en:
+                                        </p>
+                                        <span className="text-[10px] bg-green-500/20 text-green-300 px-2 py-0.5 rounded-full border border-green-500/30">
+                                            Ver mapa
+                                        </span>
+                                    </div>
+                                    <p className="text-white font-semibold">
+                                        {request.delivery_address || request.destination_address || request.origin_address || 'Dirección no especificada'}
+                                    </p>
+                                    {request.delivery_references && (
+                                        <p className="text-slate-400 text-sm mt-1">{request.delivery_references}</p>
+                                    )}
+                                </div>
+                            </>
+                        )}
                     </div>
                 ) : null}
 

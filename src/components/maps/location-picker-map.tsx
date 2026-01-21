@@ -13,7 +13,7 @@ const Map = dynamic(() => import("react-map-gl").then((mod) => mod.Map), {
 });
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || "";
-const MAP_STYLE = "mapbox://styles/mapbox/outdoors-v12";
+const MAP_STYLE = "mapbox://styles/mapbox/streets-v12"; // Lighter than 'standard' for better performance
 // Default to Venustiano Carranza, Chiapas (CP 30200) - Centro
 const DEFAULT_CENTER = { lat: 16.3396, lng: -92.5651 };
 

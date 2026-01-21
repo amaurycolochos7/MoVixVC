@@ -9,7 +9,7 @@ import "mapbox-gl/dist/mapbox-gl.css";
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || "";
 
 // Outdoors style - detailed terrain, buildings, parks, and POIs
-const MAP_STYLE = "mapbox://styles/mapbox/outdoors-v12";
+const MAP_STYLE = "mapbox://styles/mapbox/streets-v12"; // Lighter for better performance
 
 interface TrackingMapProps {
     /** Client pickup location */

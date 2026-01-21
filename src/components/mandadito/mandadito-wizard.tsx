@@ -4,7 +4,7 @@ import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, ShoppingBag, Package, MapPin, Plus, Trash2, ChevronDown, ChevronUp, Loader2, Check, Store, Bike, Navigation, CreditCard } from "lucide-react";
+import { ArrowLeft, ShoppingBag, Package, MapPin, Plus, Trash2, ChevronDown, ChevronUp, Loader2, Check, Store, Bike, Navigation, CreditCard, Lock } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { LocationPickerMap } from "@/components/maps/location-picker-map";
@@ -29,7 +29,7 @@ interface Stop {
 }
 
 type MandaditoType = "shopping" | "delivery" | "payment" | "custom";
-type WizardStep = "mode" | "stops" | "delivery" | "confirm";
+type WizardStep = "mode" | "stops" | "delivery" | "payment" | "confirm";
 
 interface LocationData {
     coords: Coordinates;
@@ -57,15 +57,22 @@ export function MandaditoWizard() {
     const [destinationCoords, setDestinationCoords] = useState<Coordinates | null>(null);
     const [destinationInstructions, setDestinationInstructions] = useState("");
 
+    // For payment type
+    const [paymentType, setPaymentType] = useState<"deposit" | "bill" | "other">("deposit");
+    const [paymentAmount, setPaymentAmount] = useState("");
+    const [paymentReference, setPaymentReference] = useState("");
+    const [paymentInstructions, setPaymentInstructions] = useState("");
+    const [paymentLocationName, setPaymentLocationName] = useState("");
+
     // Map picker state
     const [showMapPicker, setShowMapPicker] = useState(false);
     const [stopToDeleteId, setStopToDeleteId] = useState<string | null>(null);
     const [mapPickerTarget, setMapPickerTarget] = useState<
-        "pickup" | "destination" | "delivery" | { stopId: string } | null
+        "pickup" | "destination" | "delivery" | "paymentLocation" | { stopId: string } | null
     >(null);
 
     // Open map picker for different targets
-    const openMapPicker = (target: "pickup" | "destination" | "delivery" | { stopId: string }) => {
+    const openMapPicker = (target: "pickup" | "destination" | "delivery" | "paymentLocation" | { stopId: string }) => {
         setMapPickerTarget(target);
         setShowMapPicker(true);
     };
@@ -81,6 +88,12 @@ export function MandaditoWizard() {
         } else if (mapPickerTarget === "delivery") {
             setDeliveryAddress(location.address);
             setDeliveryCoords(location.coords);
+        } else if (mapPickerTarget === "paymentLocation") {
+            setDestinationAddress(location.address);
+            setDestinationCoords(location.coords);
+            if (!paymentLocationName.trim()) {
+                setPaymentLocationName(location.placeName);
+            }
         } else if (mapPickerTarget && typeof mapPickerTarget === "object" && "stopId" in mapPickerTarget) {
             // Update stop with map location - batch update to ensure all fields are set
             setStops(prevStops => prevStops.map(s => {
@@ -303,6 +316,56 @@ export function MandaditoWizard() {
 
                 toast.success("¡Envío creado!");
                 router.push(`/cliente/tracking/${request.id}`);
+
+            } else if (mandaditoType === "payment") {
+                // Validate
+                if (!pickupAddress.trim() || !destinationAddress.trim()) {
+                    toast.error("Ingresa las ubicaciones");
+                    return;
+                }
+                if (!paymentAmount.trim()) {
+                    toast.error("Ingresa el monto a pagar");
+                    return;
+                }
+
+                // Create notes with payment details
+                const paymentTypeLabels = {
+                    deposit: "Depósito bancario",
+                    bill: "Pago de servicio",
+                    other: "Otro pago"
+                };
+                const paymentNotes = `${paymentTypeLabels[paymentType]} | Monto: $${paymentAmount}${paymentReference ? ` | Ref: ${paymentReference}` : ""}${paymentInstructions ? ` | ${paymentInstructions}` : ""}`;
+
+                // Create request
+                const { data: request, error: reqError } = await supabase
+                    .from("service_requests")
+                    .insert({
+                        client_id: user.id,
+                        service_type: "mandadito",
+                        mandadito_type: "payment",
+                        origin_address: pickupAddress,
+                        origin_lat: pickupCoords?.lat,
+                        origin_lng: pickupCoords?.lng,
+                        destination_address: destinationAddress,
+                        destination_lat: destinationCoords?.lat,
+                        destination_lng: destinationCoords?.lng,
+                        notes: paymentNotes,
+                        estimated_price: 25, // Driver earnings
+                        request_expires_at: new Date(Date.now() + 110 * 1000).toISOString(),
+                        municipio: "Venustiano Carranza",
+                        // Store payment details in delivery fields for compatibility
+                        delivery_address: paymentLocationName || destinationAddress,
+                        delivery_lat: destinationCoords?.lat,
+                        delivery_lng: destinationCoords?.lng,
+                        delivery_references: `Monto: $${paymentAmount} | ${paymentReference ? `Ref: ${paymentReference}` : ""} | ${paymentInstructions || ""}`.trim(),
+                    })
+                    .select()
+                    .single();
+
+                if (reqError) throw reqError;
+
+                toast.success("¡Pago solicitado!");
+                router.push(`/cliente/tracking/${request.id}`);
             }
         } catch (err: any) {
             console.error("Error creating mandadito:", err);
@@ -370,19 +433,25 @@ export function MandaditoWizard() {
                             <p className="text-gray-500 text-xs mt-1">Tiendas, farmacias, super...</p>
                         </div>
 
-                        {/* Payment/Deposit Option */}
+                        {/* Payment/Deposit Option - DISABLED */}
                         <div
                             onClick={() => {
-                                setMandaditoType("payment");
-                                setStep("stops");
+                                toast.info("Esta función estará disponible próximamente");
                             }}
-                            className="bg-white rounded-xl p-4 shadow-md border-2 border-transparent hover:border-green-300 transition-all cursor-pointer flex flex-col items-center text-center active:scale-95"
+                            className="bg-white rounded-xl p-4 shadow-md border-2 border-gray-200 transition-all cursor-not-allowed flex flex-col items-center text-center opacity-60 relative"
                         >
-                            <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center mb-2">
-                                <CreditCard className="h-6 w-6 text-green-500" />
+                            {/* Coming Soon Badge */}
+                            <div className="absolute -top-2 -right-2 bg-gray-500 text-white text-[10px] px-2 py-0.5 rounded-full font-medium">
+                                Próximamente
                             </div>
-                            <h3 className="font-bold text-gray-900 text-sm">Pagos</h3>
-                            <p className="text-gray-500 text-xs mt-1">Depósitos, pagos de luz...</p>
+                            <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-2 relative">
+                                <CreditCard className="h-6 w-6 text-gray-400" />
+                                <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-gray-500 rounded-full flex items-center justify-center">
+                                    <Lock className="h-3 w-3 text-white" />
+                                </div>
+                            </div>
+                            <h3 className="font-bold text-gray-400 text-sm">Pagos</h3>
+                            <p className="text-gray-400 text-xs mt-1">Depósitos, pagos de luz...</p>
                         </div>
 
                         {/* Package Pickup/Delivery Option */}
@@ -753,6 +822,191 @@ export function MandaditoWizard() {
                         </DialogFooter>
                     </DialogContent>
                 </Dialog>
+            </div>
+        );
+    }
+
+    // Payment: Pickup money -> Pay at location
+    if (step === "payment") {
+        return (
+            <div className="min-h-screen bg-gray-50 pb-28">
+                {/* Header */}
+                <div className="bg-white px-6 pt-12 pb-6 shadow-sm">
+                    <button
+                        onClick={() => setStep("mode")}
+                        className="flex items-center gap-2 text-gray-500 mb-4"
+                    >
+                        <ArrowLeft className="h-5 w-5" />
+                        <span className="text-sm">Atrás</span>
+                    </button>
+                    <h1 className="text-xl font-bold text-gray-900">Pago o Depósito</h1>
+                    <p className="text-gray-500 text-sm mt-1">
+                        Te recogemos el dinero y hacemos el pago
+                    </p>
+                </div>
+
+                <div className="p-4 space-y-4">
+                    {/* Payment Type Selector */}
+                    <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+                        <label className="text-xs text-gray-500 mb-3 block font-medium">
+                            ¿Qué tipo de pago es?
+                        </label>
+                        <div className="grid grid-cols-3 gap-2">
+                            <button
+                                onClick={() => setPaymentType("deposit")}
+                                className={`p-3 rounded-xl border-2 transition-all ${paymentType === "deposit"
+                                    ? "border-green-500 bg-green-50"
+                                    : "border-gray-200 bg-gray-50"
+                                    }`}
+                            >
+                                <p className={`text-xs font-semibold ${paymentType === "deposit" ? "text-green-600" : "text-gray-700"}`}>
+                                    Depósito
+                                </p>
+                            </button>
+                            <button
+                                onClick={() => setPaymentType("bill")}
+                                className={`p-3 rounded-xl border-2 transition-all ${paymentType === "bill"
+                                    ? "border-green-500 bg-green-50"
+                                    : "border-gray-200 bg-gray-50"
+                                    }`}
+                            >
+                                <p className={`text-xs font-semibold ${paymentType === "bill" ? "text-green-600" : "text-gray-700"}`}>
+                                    Servicio
+                                </p>
+                            </button>
+                            <button
+                                onClick={() => setPaymentType("other")}
+                                className={`p-3 rounded-xl border-2 transition-all ${paymentType === "other"
+                                    ? "border-green-500 bg-green-50"
+                                    : "border-gray-200 bg-gray-50"
+                                    }`}
+                            >
+                                <p className={`text-xs font-semibold ${paymentType === "other" ? "text-green-600" : "text-gray-700"}`}>
+                                    Otro
+                                </p>
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Pickup Card - Where to get the money */}
+                    <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+                        <div className="flex items-center gap-2 text-blue-600 mb-4">
+                            <div className="w-3 h-3 rounded-full bg-blue-500" />
+                            <span className="font-semibold">Recoger dinero en</span>
+                        </div>
+                        <div className="space-y-3">
+                            {/* Map Address Picker */}
+                            <div
+                                className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl p-3 cursor-pointer hover:border-blue-300 transition-colors"
+                                onClick={() => openMapPicker("pickup")}
+                            >
+                                <MapPin className="h-5 w-5 text-blue-500" />
+                                <span className={`flex-1 ${pickupAddress ? "text-gray-900" : "text-gray-400"}`}>
+                                    {pickupAddress || "Seleccionar tu ubicación"}
+                                </span>
+                                <Navigation className="h-4 w-4 text-gray-400" />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Connector Line */}
+                    <div className="flex justify-center">
+                        <div className="w-0.5 h-8 bg-gray-200" />
+                    </div>
+
+                    {/* Payment Location Card */}
+                    <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+                        <div className="flex items-center gap-2 text-green-600 mb-4">
+                            <div className="w-3 h-3 rounded-full bg-green-500" />
+                            <span className="font-semibold">Pagar en</span>
+                        </div>
+                        <div className="space-y-3">
+                            {/* Location Name */}
+                            <Input
+                                placeholder="Nombre del lugar (Ej: Banco Azteca, Oxxo, CFE...)"
+                                value={paymentLocationName}
+                                onChange={(e) => setPaymentLocationName(e.target.value)}
+                                className="bg-gray-50 border-gray-200 text-gray-900 rounded-xl"
+                            />
+                            {/* Map Address Picker */}
+                            <div
+                                className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl p-3 cursor-pointer hover:border-green-300 transition-colors"
+                                onClick={() => openMapPicker("paymentLocation")}
+                            >
+                                <MapPin className="h-5 w-5 text-green-500" />
+                                <span className={`flex-1 ${destinationAddress ? "text-gray-900" : "text-gray-400"}`}>
+                                    {destinationAddress || "Seleccionar ubicación en mapa"}
+                                </span>
+                                <Navigation className="h-4 w-4 text-gray-400" />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Payment Details */}
+                    <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+                        <h3 className="font-semibold text-gray-900 mb-4">Detalles del pago</h3>
+                        <div className="space-y-3">
+                            {/* Amount */}
+                            <div>
+                                <label className="text-xs text-gray-500 mb-1 block font-medium">
+                                    Monto a pagar *
+                                </label>
+                                <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold">$</span>
+                                    <Input
+                                        type="text"
+                                        inputMode="numeric"
+                                        placeholder="0.00"
+                                        value={paymentAmount}
+                                        onChange={(e) => setPaymentAmount(e.target.value.replace(/[^0-9.]/g, ""))}
+                                        className="bg-gray-50 border-gray-200 text-gray-900 rounded-xl pl-8 text-lg font-semibold"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Reference */}
+                            <div>
+                                <label className="text-xs text-gray-500 mb-1 block font-medium">
+                                    {paymentType === "deposit" ? "Número de cuenta/tarjeta" : "Número de servicio/referencia"}
+                                </label>
+                                <Input
+                                    placeholder={paymentType === "deposit" ? "Ej: 4152 3138 0000 1234" : "Ej: 1234567890"}
+                                    value={paymentReference}
+                                    onChange={(e) => setPaymentReference(e.target.value)}
+                                    className="bg-gray-50 border-gray-200 text-gray-900 rounded-xl"
+                                />
+                            </div>
+
+                            {/* Instructions */}
+                            <div>
+                                <label className="text-xs text-gray-500 mb-1 block font-medium">
+                                    Instrucciones adicionales
+                                </label>
+                                <Input
+                                    placeholder="Ej: Nombre del titular, tipo de servicio..."
+                                    value={paymentInstructions}
+                                    onChange={(e) => setPaymentInstructions(e.target.value)}
+                                    className="bg-gray-50 border-gray-200 text-gray-900 rounded-xl"
+                                />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Fixed Bottom */}
+                <div className="fixed bottom-16 left-0 right-0 p-4 bg-white border-t border-gray-100 z-50">
+                    <Button
+                        className="w-full h-14 text-lg font-semibold rounded-xl bg-green-500 hover:bg-green-600 text-white shadow-lg shadow-green-200"
+                        disabled={!pickupAddress.trim() || !destinationAddress.trim() || !paymentAmount.trim() || isSubmitting}
+                        onClick={handleSubmit}
+                    >
+                        {isSubmitting ? (
+                            <Loader2 className="h-5 w-5 animate-spin" />
+                        ) : (
+                            `Solicitar Pago de $${paymentAmount || '0'}`
+                        )}
+                    </Button>
+                </div>
             </div>
         );
     }

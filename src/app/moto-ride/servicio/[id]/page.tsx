@@ -421,7 +421,11 @@ export default function MotoRideServicePage() {
                         size="icon"
                         variant="ghost"
                         className="w-6 h-6 rounded-full text-blue-500 hover:bg-blue-50"
-                        onClick={() => window.open(`tel:${client?.phone}`)}
+                        onClick={() => {
+                            if (client?.phone) {
+                                window.location.href = `tel:${client.phone}`;
+                            }
+                        }}
                     >
                         <Phone className="w-3.5 h-3.5" />
                     </Button>

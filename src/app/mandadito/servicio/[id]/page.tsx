@@ -544,7 +544,9 @@ export default function MandaditoServicePage() {
                         onClick={() => setShowPinModal(true)}
                     >
                         <KeyRound className="h-5 w-5 mr-2" />
-                        Confirmar Entrega con PIN
+                        {request?.mandadito_type === 'payment'
+                            ? 'Confirmar Entrega de Dinero con PIN'
+                            : 'Confirmar Entrega con PIN'}
                     </Button>
                 </div>
 
@@ -554,10 +556,14 @@ export default function MandaditoServicePage() {
                         <DialogHeader>
                             <DialogTitle className="flex items-center gap-2">
                                 <KeyRound className="h-5 w-5 text-orange-500" />
-                                Ingresa el PIN del cliente
+                                {request?.mandadito_type === 'payment'
+                                    ? 'Confirma que recibiste el dinero'
+                                    : 'Ingresa el PIN del cliente'}
                             </DialogTitle>
                             <DialogDescription className="text-gray-600">
-                                Solicita el PIN de 4 dígitos al cliente para confirmar la entrega.
+                                {request?.mandadito_type === 'payment'
+                                    ? 'Solicita el PIN de 4 dígitos al cliente para confirmar que te entregó el dinero.'
+                                    : 'Solicita el PIN de 4 dígitos al cliente para confirmar la entrega.'}
                             </DialogDescription>
                         </DialogHeader>
 
@@ -645,7 +651,11 @@ export default function MandaditoServicePage() {
                         <Button
                             size="sm"
                             className="bg-green-600 hover:bg-green-700"
-                            onClick={() => window.open(`tel:${request.client?.phone}`)}
+                            onClick={() => {
+                                if (request.client?.phone) {
+                                    window.location.href = `tel:${request.client.phone}`;
+                                }
+                            }}
                         >
                             <Phone className="h-4 w-4" />
                         </Button>

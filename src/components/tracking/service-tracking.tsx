@@ -31,6 +31,21 @@ export function ServiceTracking({ requestId, userRole, initialRequestData }: Ser
     const [request, setRequest] = useState<any>(initialRequestData);
     const [loading, setLoading] = useState(!initialRequestData);
 
+    // IMMEDIATE redirect for drivers - don't show anything
+    if (userRole === "driver" && initialRequestData) {
+        const servicePath = getServicePath(initialRequestData.service_type, requestId);
+        // Use window.location.replace for immediate redirect without flash
+        if (typeof window !== 'undefined') {
+            window.location.replace(servicePath);
+        }
+        // Return loading spinner while redirecting
+        return (
+            <div className="flex items-center justify-center h-screen bg-gray-50">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        );
+    }
+
     // Fetch latest request data
     useEffect(() => {
         const fetchRequest = async () => {
@@ -48,13 +63,13 @@ export function ServiceTracking({ requestId, userRole, initialRequestData }: Ser
         }
     }, [requestId, initialRequestData]);
 
-    // Auto-redirect to service page for drivers
+    // Auto-redirect to service page for drivers (fallback if immediate redirect fails)
     useEffect(() => {
         if (request && userRole === "driver" && request.status !== "completed") {
             const servicePath = getServicePath(request.service_type, requestId);
-            router.push(servicePath);
+            window.location.replace(servicePath);
         }
-    }, [request, userRole, requestId, router]);
+    }, [request, userRole, requestId]);
 
     if (loading) {
         return (

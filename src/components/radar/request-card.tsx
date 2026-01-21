@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { CheckCircle, Timer, DollarSign } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 interface RequestCardProps {
     request: any;
@@ -15,32 +15,52 @@ interface RequestCardProps {
 }
 
 export function RequestCard({ request, driverLocation, onCardClick, onOffer, onAccept, onShowMap }: RequestCardProps) {
-    // Countdown timer for expiration - synced with client timer
+    // Countdown timer - uses server's remaining_seconds, then decrements locally
     const [secondsRemaining, setSecondsRemaining] = useState<number>(0);
+    const mountTimeRef = useRef<number>(Date.now());
+    const lastServerValueRef = useRef<number | null>(null);
 
     useEffect(() => {
-        if (!request.request_expires_at) return;
+        // Use server-calculated remaining_seconds if available (from RPC function)
+        let serverRemaining: number;
 
-        // Calculate remaining time using same logic as client
-        const calculateRemaining = () => {
-            const now = Date.now();
-            const expires = new Date(request.request_expires_at).getTime();
-            const diff = expires - now;
-            return diff > 0 ? Math.ceil(diff / 1000) : 0;
+        if (typeof request.remaining_seconds === 'number') {
+            // Server calculated this value using NOW() - most accurate
+            serverRemaining = request.remaining_seconds;
+            console.log(`⏱️ [${request.service_type}] Server remaining_seconds: ${serverRemaining}`);
+        } else if (request.request_expires_at && request.created_at) {
+            // Fallback: calculate from timestamps
+            const expiresMs = new Date(request.request_expires_at).getTime();
+            const createdMs = new Date(request.created_at).getTime();
+            const totalDurationSec = Math.round((expiresMs - createdMs) / 1000);
+            const elapsedSinceCreation = Math.max(0, (Date.now() - createdMs) / 1000);
+            serverRemaining = Math.max(0, Math.round(totalDurationSec - elapsedSinceCreation));
+            console.log(`⏱️ [${request.service_type}] Fallback remaining: ${serverRemaining}s (no server value)`);
+        } else {
+            return;
+        }
+
+        // Always reset when server value changes
+        if (lastServerValueRef.current !== serverRemaining) {
+            lastServerValueRef.current = serverRemaining;
+            mountTimeRef.current = Date.now();
+        }
+
+        const getRemaining = () => {
+            const elapsedSinceMount = (Date.now() - mountTimeRef.current) / 1000;
+            return Math.max(0, Math.round(serverRemaining - elapsedSinceMount));
         };
 
-        // Set initial value
-        setSecondsRemaining(calculateRemaining());
+        setSecondsRemaining(getRemaining());
 
-        // Update every second
         const timer = setInterval(() => {
-            const remaining = calculateRemaining();
+            const remaining = getRemaining();
             setSecondsRemaining(remaining);
             if (remaining <= 0) clearInterval(timer);
         }, 1000);
 
         return () => clearInterval(timer);
-    }, [request.request_expires_at]);
+    }, [request.remaining_seconds, request.request_expires_at, request.created_at, request.service_type]);
 
     const price = request.estimated_price || (request.service_type === "mandadito" ? 25 : 35);
 

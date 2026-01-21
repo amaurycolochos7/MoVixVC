@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Car, Bike, Clock, Loader2, MapPin, ChevronRight, ShoppingBag, Package, AlertCircle } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/contexts/auth-context";
 
@@ -102,7 +103,7 @@ export default function ClienteHomePage() {
                     <div className="relative">
                         <div className="bg-white rounded-2xl p-3 shadow-md opacity-60 grayscale cursor-not-allowed">
                             <div className="h-24 flex items-center justify-center mb-2">
-                                <img src="/taxi.png" alt="Taxi" className="h-full object-contain" />
+                                <Image src="/taxi.png" alt="Taxi" width={96} height={96} className="object-contain" priority />
                             </div>
                             <div className="text-center">
                                 <h3 className="font-bold text-gray-900 text-sm">Taxi</h3>
@@ -124,7 +125,7 @@ export default function ClienteHomePage() {
                     <Link href="/cliente/mandadito">
                         <div className="bg-white rounded-2xl p-3 shadow-md hover:shadow-lg transition-shadow">
                             <div className="h-24 flex items-center justify-center mb-2">
-                                <img src="/delivery-moto.png" alt="Mandadito" className="h-full object-contain" />
+                                <Image src="/delivery-moto.png" alt="Mandadito" width={96} height={96} className="object-contain" priority />
                             </div>
                             <div className="text-center">
                                 <h3 className="font-bold text-orange-600 text-sm">Mandadito</h3>
@@ -137,7 +138,7 @@ export default function ClienteHomePage() {
                     <Link href="/cliente/moto-ride">
                         <div className="bg-white rounded-2xl p-3 shadow-md hover:shadow-lg transition-shadow">
                             <div className="h-24 flex items-center justify-center mb-2">
-                                <img src="/moto-ride.png" alt="Moto Ride" className="h-full object-contain" />
+                                <Image src="/moto-ride.png" alt="Moto Ride" width={96} height={96} className="object-contain" priority />
                             </div>
                             <div className="text-center">
                                 <h3 className="font-bold text-gray-900 text-sm">Moto Ride</h3>

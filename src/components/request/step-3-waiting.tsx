@@ -1,7 +1,7 @@
 "use client";
 
 import { useRequestWizard } from "@/hooks/useRequestWizard";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -40,27 +40,46 @@ export function Step3Waiting({ wizard, requestId }: Step3Props) {
     const [offers, setOffers] = useState<Offer[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isAccepting, setIsAccepting] = useState(false);
-    const [expiresAt, setExpiresAt] = useState<string | null>(null);
+    const [serverRemainingSeconds, setServerRemainingSeconds] = useState<number | null>(null);
     const [timeLeft, setTimeLeft] = useState<string>("");
+    const mountTimeRef = useRef<number>(Date.now());
 
     const supabase = createClient();
 
-    // Fetch Request Expiry and existing offers
+    // Fetch Request with server-calculated remaining seconds
     useEffect(() => {
         const fetchInitialData = async () => {
             setIsLoading(true);
             try {
-                // Fetch request expiry
-                const { data: requestData } = await supabase
+                // First get server time
+                const { data: serverTime } = await supabase.rpc('get_server_time');
+
+                // Then get request data
+                const { data: requestData, error } = await supabase
                     .from("service_requests")
-                    .select("request_expires_at")
+                    .select("request_expires_at, created_at")
                     .eq("id", requestId)
                     .single();
 
-                if (requestData) setExpiresAt(requestData.request_expires_at);
+                if (requestData && serverTime) {
+                    // Calculate remaining using server time
+                    const serverNow = new Date(serverTime).getTime();
+                    const expiresAt = new Date(requestData.request_expires_at).getTime();
+                    const remaining = Math.max(0, Math.ceil((expiresAt - serverNow) / 1000));
+                    setServerRemainingSeconds(remaining);
+                    mountTimeRef.current = Date.now();
+                    console.log(`⏱️ [CLIENT] Server remaining_seconds: ${remaining}`);
+                } else if (requestData) {
+                    // Fallback if get_server_time RPC not available
+                    const expiresAt = new Date(requestData.request_expires_at).getTime();
+                    const remaining = Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
+                    setServerRemainingSeconds(remaining);
+                    mountTimeRef.current = Date.now();
+                    console.log(`⏱️ [CLIENT] Fallback remaining: ${remaining}s`);
+                }
 
                 // Fetch existing offers
-                const { data: offersData, error } = await supabase
+                const { data: offersData, error: offersError } = await supabase
                     .from("offers")
                     .select("*")
                     .eq("request_id", requestId)
@@ -79,34 +98,17 @@ export function Step3Waiting({ wizard, requestId }: Step3Props) {
         fetchInitialData();
     }, [requestId, supabase]);
 
-    // Timer Logic - synced with driver timer
+    // Timer Logic - uses server remaining_seconds, then decrements locally
     useEffect(() => {
-        if (!expiresAt) return;
+        if (serverRemainingSeconds === null) return;
 
-        const calculateRemaining = () => {
-            const now = Date.now();
-            const expires = new Date(expiresAt).getTime();
-            const diff = expires - now;
-            return diff > 0 ? Math.ceil(diff / 1000) : 0;
+        const getRemaining = () => {
+            const elapsedSinceMount = (Date.now() - mountTimeRef.current) / 1000;
+            return Math.max(0, Math.round(serverRemainingSeconds - elapsedSinceMount));
         };
 
-        // Set initial value immediately
-        const initialSeconds = calculateRemaining();
-        if (initialSeconds <= 0) {
-            setTimeLeft("Expirado");
-        } else if (initialSeconds >= 60) {
-            const minutes = Math.floor(initialSeconds / 60);
-            const seconds = initialSeconds % 60;
-            setTimeLeft(`${minutes}:${seconds < 10 ? '0' : ''}${seconds}`);
-        } else {
-            setTimeLeft(`${initialSeconds}s`);
-        }
-
-        const interval = setInterval(() => {
-            const remaining = calculateRemaining();
-
+        const updateDisplay = (remaining: number) => {
             if (remaining <= 0) {
-                clearInterval(interval);
                 setTimeLeft("Expirado");
             } else if (remaining >= 60) {
                 const minutes = Math.floor(remaining / 60);
@@ -115,10 +117,19 @@ export function Step3Waiting({ wizard, requestId }: Step3Props) {
             } else {
                 setTimeLeft(`${remaining}s`);
             }
+        };
+
+        // Set initial value
+        updateDisplay(getRemaining());
+
+        const interval = setInterval(() => {
+            const remaining = getRemaining();
+            updateDisplay(remaining);
+            if (remaining <= 0) clearInterval(interval);
         }, 1000);
 
         return () => clearInterval(interval);
-    }, [expiresAt]);
+    }, [serverRemainingSeconds]);
 
 
     useEffect(() => {
