@@ -10,23 +10,24 @@ interface BoardingPinModalProps {
     open: boolean;
     onClose: () => void;
     onValidate: (pin: string) => Promise<boolean>;
+    pinLength?: number; // 3 for moto_ride, 4 for taxi/others
 }
 
-export function BoardingPinModal({ open, onClose, onValidate }: BoardingPinModalProps) {
+export function BoardingPinModal({ open, onClose, onValidate, pinLength = 4 }: BoardingPinModalProps) {
     const [pin, setPin] = useState("");
     const [isValidating, setIsValidating] = useState(false);
     const [error, setError] = useState("");
 
     const handlePinChange = (value: string) => {
-        // Solo números, máximo 4 dígitos
-        const cleaned = value.replace(/\D/g, "").slice(0, 4);
+        // Solo números, máximo según pinLength
+        const cleaned = value.replace(/\D/g, "").slice(0, pinLength);
         setPin(cleaned);
         setError("");
     };
 
     const handleValidate = async () => {
-        if (pin.length !== 4) {
-            setError("El código debe tener 4 dígitos");
+        if (pin.length !== pinLength) {
+            setError(`El código debe tener ${pinLength} dígitos`);
             return;
         }
 
@@ -50,21 +51,24 @@ export function BoardingPinModal({ open, onClose, onValidate }: BoardingPinModal
     };
 
     const handleKeyPress = (e: React.KeyboardEvent) => {
-        if (e.key === "Enter" && pin.length === 4) {
+        if (e.key === "Enter" && pin.length === pinLength) {
             handleValidate();
         }
     };
+
+    // Determine if this is moto_ride style (3 digits = orange theme)
+    const isMotoRide = pinLength === 3;
 
     return (
         <Dialog open={open} onOpenChange={onClose}>
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2 text-blue-700">
+                    <DialogTitle className={`flex items-center gap-2 ${isMotoRide ? 'text-orange-600' : 'text-blue-700'}`}>
                         <Shield className="h-5 w-5" />
                         Iniciar Viaje con Cliente
                     </DialogTitle>
                     <DialogDescription>
-                        Solicita al cliente su código de 4 dígitos
+                        Solicita al cliente su código de {pinLength} dígitos
                     </DialogDescription>
                 </DialogHeader>
 
@@ -80,12 +84,12 @@ export function BoardingPinModal({ open, onClose, onValidate }: BoardingPinModal
                                 type="text"
                                 inputMode="numeric"
                                 pattern="[0-9]*"
-                                maxLength={4}
+                                maxLength={pinLength}
                                 value={pin}
                                 onChange={(e) => handlePinChange(e.target.value)}
                                 onKeyPress={handleKeyPress}
-                                placeholder="0000"
-                                className="text-center text-2xl font-bold tracking-widest w-32 h-14"
+                                placeholder={pinLength === 3 ? "000" : "0000"}
+                                className={`text-center text-2xl font-bold tracking-widest ${pinLength === 3 ? 'w-28' : 'w-32'} h-14 ${isMotoRide ? 'focus:ring-orange-500 focus:border-orange-500' : ''}`}
                                 autoFocus
                                 disabled={isValidating}
                             />
@@ -101,8 +105,8 @@ export function BoardingPinModal({ open, onClose, onValidate }: BoardingPinModal
                     </div>
 
                     {/* Info adicional */}
-                    <div className="bg-blue-50 border border-blue-100 rounded-lg p-3">
-                        <p className="text-xs text-blue-700 text-center">
+                    <div className={`${isMotoRide ? 'bg-orange-50 border-orange-100' : 'bg-blue-50 border-blue-100'} border rounded-lg p-3`}>
+                        <p className={`text-xs ${isMotoRide ? 'text-orange-700' : 'text-blue-700'} text-center`}>
                             ℹ️ El cliente puede ver su código en la pantalla de seguimiento
                         </p>
                     </div>
@@ -119,8 +123,8 @@ export function BoardingPinModal({ open, onClose, onValidate }: BoardingPinModal
                     </Button>
                     <Button
                         onClick={handleValidate}
-                        disabled={pin.length !== 4 || isValidating}
-                        className="flex-1 bg-blue-600 hover:bg-blue-700"
+                        disabled={pin.length !== pinLength || isValidating}
+                        className={`flex-1 ${isMotoRide ? 'bg-orange-500 hover:bg-orange-600' : 'bg-blue-600 hover:bg-blue-700'}`}
                     >
                         {isValidating ? (
                             <>

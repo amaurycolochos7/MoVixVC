@@ -311,7 +311,7 @@ export const DriverNavigationMap = forwardRef<DriverNavigationMapRef, DriverNavi
                     </Marker>
                 )}
 
-                {/* Driver marker */}
+                {/* Driver marker - Moto Ride branded icon */}
                 {showDriverMarker && (
                     <Marker
                         longitude={animatedDriver.position.lng}
@@ -320,8 +320,15 @@ export const DriverNavigationMap = forwardRef<DriverNavigationMapRef, DriverNavi
                         rotation={animatedDriver.bearing}
                     >
                         <div className="relative">
-                            <div className="drop-shadow-lg transition-transform duration-500">
-                                <img src={CarIcon.src} alt="" className="w-10 h-10" />
+                            {/* Glowing pulse effect */}
+                            <div className="absolute inset-0 w-12 h-12 rounded-full bg-orange-400/30 animate-ping" style={{ animationDuration: '2s' }} />
+                            {/* Main icon container */}
+                            <div className="relative w-12 h-12 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 shadow-lg flex items-center justify-center border-2 border-white">
+                                <img
+                                    src="/moto-ride.png"
+                                    alt="Moto Ride"
+                                    className="w-8 h-8 object-contain"
+                                />
                             </div>
                         </div>
                     </Marker>
@@ -330,12 +337,11 @@ export const DriverNavigationMap = forwardRef<DriverNavigationMapRef, DriverNavi
 
             {/* Map controls - Right side */}
             <div className="absolute right-3 top-1/2 -translate-y-1/2 z-20 flex flex-col gap-2">
-                {/* Recenter Button - Just recenters, no lock mode */}
+                {/* Recenter Button - Centers map on current position or pickup */}
                 <Button
                     size="icon"
-                    className="rounded-full w-11 h-11 shadow-lg bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 active:scale-95 transition-all"
+                    className="rounded-full w-11 h-11 shadow-lg active:scale-95 transition-all bg-white hover:bg-gray-50 text-orange-600 border-2 border-orange-200"
                     onClick={followCamera.recenter}
-                    disabled={!hasDriverLocation}
                     title="Centrar en mi ubicación"
                 >
                     <Crosshair className="w-5 h-5" />

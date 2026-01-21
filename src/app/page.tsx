@@ -29,7 +29,7 @@ export default function Home() {
 
               {/* 2. Moto Ride - Entra segundo (4s - 8s) */}
               <div className="absolute opacity-0 animate-[vehicleTwo_12s_ease-in-out_infinite]">
-                <Image src="/moto-ride.png" alt="Moto Ride" width={176} height={176} className="object-contain" />
+                <Image src="/moto-ride.png" alt="Moto Ride" width={112} height={112} className="object-contain" />
               </div>
 
               {/* 3. Taxi - Entra tercero (8s - 12s) */}

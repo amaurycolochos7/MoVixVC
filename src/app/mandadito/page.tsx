@@ -300,33 +300,53 @@ export default function MandaditoHomePage() {
 
     return (
         <div className="h-[calc(100vh-4rem)] bg-gray-100 flex flex-col overflow-hidden">
-            {/* Header - Compact */}
-            <div className="flex-shrink-0 bg-gradient-to-b from-orange-500 to-orange-600 text-white px-5 pt-6 pb-10">
-                <p className="text-orange-200 text-xs mb-0.5">Hola, {driverName || "Conductor"}</p>
-                <h1 className="text-xl font-bold">Panel de conductor</h1>
+            {/* Header - Enhanced */}
+            <div className="flex-shrink-0 bg-gradient-to-br from-orange-500 via-orange-500 to-orange-600 text-white px-5 pt-6 pb-12">
+                <div className="flex items-center justify-between">
+                    <div>
+                        <p className="text-orange-200 text-xs mb-0.5">¡Hola, {driverName || "Conductor"}! 👋</p>
+                        <h1 className="text-xl font-bold">Mandadito</h1>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <div className={`px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-1.5 ${isAvailable
+                            ? 'bg-green-500/20 text-green-100 border border-green-400/30'
+                            : 'bg-white/10 text-orange-100 border border-white/20'
+                            }`}>
+                            <div className={`w-2 h-2 rounded-full ${isAvailable ? 'bg-green-400 animate-pulse' : 'bg-orange-200'}`} />
+                            {isAvailable ? 'En línea' : 'Offline'}
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            {/* Availability Card - Compact */}
-            <div className="flex-shrink-0 px-5 -mt-5 relative z-10 mb-3">
-                <Card className="p-4 bg-white shadow-lg border-0 rounded-xl">
+            {/* Availability Card - Enhanced */}
+            <div className="flex-shrink-0 px-5 -mt-6 relative z-10 mb-3">
+                <Card className="p-4 bg-white shadow-xl border-0 rounded-2xl">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isAvailable ? 'bg-green-100' : 'bg-gray-100'}`}>
-                                <div className={`w-3 h-3 rounded-full ${isAvailable ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
+                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-300 ${isAvailable
+                                ? 'bg-gradient-to-br from-green-400 to-green-500 shadow-lg shadow-green-200'
+                                : 'bg-gray-100'
+                                }`}>
+                                {isAvailable ? (
+                                    <Zap className="h-6 w-6 text-white" />
+                                ) : (
+                                    <div className="w-4 h-4 rounded-full bg-gray-300" />
+                                )}
                             </div>
                             <div>
-                                <p className="font-bold text-gray-900">
-                                    {isAvailable ? "En línea" : "Desconectado"}
+                                <p className={`font-bold text-base ${isAvailable ? 'text-green-600' : 'text-gray-900'}`}>
+                                    {isAvailable ? "¡Estás activo!" : "Desconectado"}
                                 </p>
                                 <p className="text-xs text-gray-500">
-                                    {isAvailable ? "Recibiendo solicitudes" : "Toca para conectarte"}
+                                    {isAvailable ? "Recibiendo solicitudes de mandados" : "Activa el switch para conectarte"}
                                 </p>
                             </div>
                         </div>
                         <Switch
                             checked={isAvailable}
                             onCheckedChange={handleAvailabilityChange}
-                            className="data-[state=checked]:bg-orange-500"
+                            className="data-[state=checked]:bg-green-500 scale-110"
                         />
                     </div>
                 </Card>

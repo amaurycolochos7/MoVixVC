@@ -79,22 +79,41 @@ export function Step3Waiting({ wizard, requestId }: Step3Props) {
         fetchInitialData();
     }, [requestId, supabase]);
 
-    // Timer Logic
+    // Timer Logic - synced with driver timer
     useEffect(() => {
         if (!expiresAt) return;
 
-        const interval = setInterval(() => {
-            const now = new Date();
-            const end = new Date(expiresAt);
-            const diff = end.getTime() - now.getTime();
+        const calculateRemaining = () => {
+            const now = Date.now();
+            const expires = new Date(expiresAt).getTime();
+            const diff = expires - now;
+            return diff > 0 ? Math.ceil(diff / 1000) : 0;
+        };
 
-            if (diff <= 0) {
+        // Set initial value immediately
+        const initialSeconds = calculateRemaining();
+        if (initialSeconds <= 0) {
+            setTimeLeft("Expirado");
+        } else if (initialSeconds >= 60) {
+            const minutes = Math.floor(initialSeconds / 60);
+            const seconds = initialSeconds % 60;
+            setTimeLeft(`${minutes}:${seconds < 10 ? '0' : ''}${seconds}`);
+        } else {
+            setTimeLeft(`${initialSeconds}s`);
+        }
+
+        const interval = setInterval(() => {
+            const remaining = calculateRemaining();
+
+            if (remaining <= 0) {
                 clearInterval(interval);
                 setTimeLeft("Expirado");
-            } else {
-                const minutes = Math.floor(diff / 60000);
-                const seconds = Math.floor((diff % 60000) / 1000);
+            } else if (remaining >= 60) {
+                const minutes = Math.floor(remaining / 60);
+                const seconds = remaining % 60;
                 setTimeLeft(`${minutes}:${seconds < 10 ? '0' : ''}${seconds}`);
+            } else {
+                setTimeLeft(`${remaining}s`);
             }
         }, 1000);
 

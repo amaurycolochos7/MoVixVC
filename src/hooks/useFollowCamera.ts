@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { MapRef } from "react-map-gl";
-import { Coordinates, TRACKING_CONFIG, lerpBearing, easeOutCubic } from "./useAnimatedMarker";
+import { Coordinates, TRACKING_CONFIG, easeOutCubic } from "./useAnimatedMarker";
 
 interface UseFollowCameraOptions {
     mapRef: React.RefObject<MapRef>;
@@ -14,15 +14,11 @@ interface UseFollowCameraOptions {
     transitionDuration?: number;
 }
 
-interface FollowCameraState {
-    userZoom: number | null; // User's preferred zoom level
-    lastRecenter: number;
-}
-
 /**
- * Hook for camera following behavior like Uber/Didi
- * ALWAYS follows position but respects user zoom preferences
- * No toggle lock - just a recenter button
+ * Hook for camera following behavior
+ * - By default does NOT auto-follow (user has full control)
+ * - Recenter button moves camera to current position
+ * - User can freely zoom/pan without interference
  */
 export function useFollowCamera(options: UseFollowCameraOptions) {
     const {
@@ -32,19 +28,15 @@ export function useFollowCamera(options: UseFollowCameraOptions) {
         enabled = true,
         zoom = TRACKING_CONFIG.DEFAULT_ZOOM,
         pitch = 45,
-        transitionDuration = TRACKING_CONFIG.CAMERA_TRANSITION_MS,
     } = options;
 
-    const [state, setState] = useState<FollowCameraState>({
-        userZoom: null,
-        lastRecenter: 0,
-    });
-
+    // Use ref to track pause state to avoid closure issues
+    const isPausedRef = useRef(true); // Start paused - user has control
+    const [isPaused, setIsPaused] = useState(true);
     const animatingRef = useRef(false);
-    const lastEaseToRef = useRef<number>(0);
 
     /**
-     * Recenter on current position with default zoom
+     * Recenter on current position
      * Called when user clicks the recenter button
      */
     const recenter = useCallback(() => {
@@ -62,8 +54,8 @@ export function useFollowCamera(options: UseFollowCameraOptions) {
             easing: easeOutCubic,
         });
 
-        // Reset user zoom preference
-        setState(prev => ({ ...prev, userZoom: null, lastRecenter: Date.now() }));
+        // DO NOT resume auto-follow after recentering
+        // User still has full control, they just centered the view
 
         setTimeout(() => {
             animatingRef.current = false;
@@ -71,36 +63,7 @@ export function useFollowCamera(options: UseFollowCameraOptions) {
     }, [mapRef, targetPosition, targetBearing, zoom, pitch]);
 
     /**
-     * Smooth follow - moves camera to position but preserves user zoom
-     */
-    const smoothFollow = useCallback(() => {
-        if (!mapRef.current || animatingRef.current) return;
-        if (targetPosition.lat === 0 && targetPosition.lng === 0) return;
-
-        // Throttle to avoid overwhelming the map
-        const now = Date.now();
-        if (now - lastEaseToRef.current < 200) return;
-        lastEaseToRef.current = now;
-
-        // Get current zoom to preserve it
-        const currentZoom = mapRef.current.getZoom();
-        const currentPitch = mapRef.current.getPitch();
-
-        // Use user's zoom if they've zoomed, otherwise use default
-        const targetZoom = state.userZoom ?? zoom;
-
-        mapRef.current.easeTo({
-            center: [targetPosition.lng, targetPosition.lat],
-            zoom: targetZoom,
-            bearing: targetBearing,
-            pitch: currentPitch || pitch,
-            duration: transitionDuration,
-            easing: easeOutCubic,
-        });
-    }, [mapRef, targetPosition, targetBearing, zoom, pitch, transitionDuration, state.userZoom]);
-
-    /**
-     * Initial center (instant, no animation)
+     * Initial center (instant, no animation) - used only on mount
      */
     const centerOnTarget = useCallback(() => {
         if (!mapRef.current) return;
@@ -114,31 +77,35 @@ export function useFollowCamera(options: UseFollowCameraOptions) {
         });
     }, [mapRef, targetPosition, targetBearing, zoom, pitch]);
 
-    // Always follow target when position changes
+    // Center once when we first get valid coordinates
+    const hasCenteredRef = useRef(false);
     useEffect(() => {
-        if (enabled) {
-            smoothFollow();
+        if (!hasCenteredRef.current && enabled && targetPosition.lat !== 0 && targetPosition.lng !== 0) {
+            centerOnTarget();
+            hasCenteredRef.current = true;
         }
-    }, [targetPosition.lat, targetPosition.lng, targetBearing, enabled, smoothFollow]);
+    }, [targetPosition.lat, targetPosition.lng, enabled, centerOnTarget]);
 
-    // Legacy compatibility - these do nothing now but prevent errors
-    const enableFollow = useCallback(() => { }, []);
+    // Pause follow - called when user interacts
     const disableFollow = useCallback(() => {
-        // When user interacts, save their zoom level
-        if (mapRef.current) {
-            const currentZoom = mapRef.current.getZoom();
-            setState(prev => ({ ...prev, userZoom: currentZoom }));
-        }
-    }, [mapRef]);
-    const toggleFollow = recenter; // Toggle now just recenters
+        isPausedRef.current = true;
+        setIsPaused(true);
+    }, []);
+
+    // Resume follow - currently not used, but kept for compatibility
+    const enableFollow = useCallback(() => {
+        isPausedRef.current = false;
+        setIsPaused(false);
+    }, []);
 
     return {
-        isFollowing: true, // Always following
+        isFollowing: false, // We never auto-follow now
+        isPaused: true, // Always paused - user has full control
         enableFollow,
         disableFollow,
-        toggleFollow,
+        toggleFollow: recenter,
         centerOnTarget,
-        flyToTarget: smoothFollow,
+        flyToTarget: recenter,
         recenter,
         isAnimating: animatingRef.current,
     };
@@ -146,31 +113,14 @@ export function useFollowCamera(options: UseFollowCameraOptions) {
 
 /**
  * Hook to detect user interaction with the map
- * Disables follow mode when user drags/pinches the map
+ * Now essentially a no-op since we don't auto-follow anymore
  */
 export function useMapInteractionDetector(
     mapRef: React.RefObject<MapRef>,
     onUserInteraction: () => void
 ) {
+    // No-op - we don't need to detect interactions since we don't auto-follow
     useEffect(() => {
-        const map = mapRef.current?.getMap();
-        if (!map) return;
-
-        const handleInteraction = () => onUserInteraction();
-
-        // Listen for all user interactions
-        map.on('dragstart', handleInteraction);
-        map.on('wheel', handleInteraction);
-        map.on('pitchstart', handleInteraction);
-        map.on('touchstart', handleInteraction); // Fix for mobile zoom/pan
-        map.on('mousedown', handleInteraction); // Fix for desktop drag click
-
-        return () => {
-            map.off('dragstart', handleInteraction);
-            map.off('wheel', handleInteraction);
-            map.off('pitchstart', handleInteraction);
-            map.off('touchstart', handleInteraction);
-            map.off('mousedown', handleInteraction);
-        };
+        // Intentionally empty - user always has control
     }, [mapRef, onUserInteraction]);
 }

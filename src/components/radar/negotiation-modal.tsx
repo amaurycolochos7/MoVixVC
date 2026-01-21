@@ -29,8 +29,16 @@ function calculateETA(distanceKm: number) {
     return Math.ceil((distanceKm / 25) * 60); // minutes
 }
 
-// Countdown Component
-const CountdownTimer = ({ createdAt, expiresAt }: { createdAt: string; expiresAt?: string }) => {
+// Countdown Component - Synced with client timer
+const CountdownTimer = ({
+    createdAt,
+    expiresAt,
+    onExpire
+}: {
+    createdAt: string;
+    expiresAt?: string;
+    onExpire?: () => void;
+}) => {
     const [timeLeft, setTimeLeft] = useState<number | null>(null);
 
     useEffect(() => {
@@ -39,9 +47,10 @@ const CountdownTimer = ({ createdAt, expiresAt }: { createdAt: string; expiresAt
             let expires;
 
             if (expiresAt) {
+                // Use the exact same expiration time as the client
                 expires = new Date(expiresAt).getTime();
             } else {
-                // Fallback for legacy requests: 40s default
+                // Fallback for legacy requests: 40s default from created_at
                 const created = new Date(createdAt).getTime();
                 expires = created + 40000;
             }
@@ -53,18 +62,29 @@ const CountdownTimer = ({ createdAt, expiresAt }: { createdAt: string; expiresAt
         const timer = setInterval(() => {
             const remaining = calculateTime();
             setTimeLeft(remaining);
-            if (remaining <= 0) clearInterval(timer);
+            if (remaining <= 0) {
+                clearInterval(timer);
+                // Auto-close modal when expired
+                if (onExpire) {
+                    setTimeout(() => onExpire(), 500); // Small delay for visual feedback
+                }
+            }
         }, 1000);
 
         return () => clearInterval(timer);
-    }, [createdAt]);
+    }, [createdAt, expiresAt, onExpire]);
 
     if (timeLeft === null) return <span className="text-slate-500 text-xs">Calculando...</span>;
     if (timeLeft <= 0) return <span className="text-red-500 font-bold">Expirado</span>;
 
+    // Format similar to client: show minutes:seconds if > 60s
+    const display = timeLeft >= 60
+        ? `${Math.floor(timeLeft / 60)}:${(timeLeft % 60).toString().padStart(2, '0')}`
+        : `${timeLeft}s`;
+
     return (
         <span className="text-orange-400 font-bold animate-pulse">
-            Expira en {timeLeft}s
+            Expira en {display}
         </span>
     );
 };
@@ -77,8 +97,8 @@ interface NegotiationModalProps {
 }
 
 export function NegotiationModal({ request, driverLocation, onClose, onAccept }: NegotiationModalProps) {
-    const supabase = createClient(); // Ensure createClient is imported
-    console.log("🛠️ NEGOTIATION MODAL REQUEST:", request);
+    const supabase = createClient();
+    console.log("🛠️ NEGOTIATION MODAL REQUEST:", { id: request.id, expires_at: request.request_expires_at });
 
     const [offerAmount, setOfferAmount] = useState<string>("");
     const [mounted, setMounted] = useState(false);
@@ -87,12 +107,31 @@ export function NegotiationModal({ request, driverLocation, onClose, onAccept }:
     const [selectedStop, setSelectedStop] = useState<any>(null);
     const [selectedStopIndex, setSelectedStopIndex] = useState<number>(0);
 
+    // Fresh expiration time from DB (to ensure sync with client)
+    const [freshExpiresAt, setFreshExpiresAt] = useState<string | null>(request.request_expires_at || null);
+
     // Local state for stops to handle missing data fallback
     const [stops, setStops] = useState<any[]>(request.request_stops || []);
     const [isLoadingStops, setIsLoadingStops] = useState(false);
 
     useEffect(() => {
         setMounted(true);
+
+        // Fetch fresh expiration time to ensure sync with client
+        const fetchFreshExpiration = async () => {
+            const { data } = await supabase
+                .from('service_requests')
+                .select('request_expires_at')
+                .eq('id', request.id)
+                .single();
+
+            if (data?.request_expires_at) {
+                console.log("✅ Fresh expires_at fetched:", data.request_expires_at);
+                setFreshExpiresAt(data.request_expires_at);
+            }
+        };
+        fetchFreshExpiration();
+
         // Fallback: Fetch stops if missing
         if (!request.request_stops || request.request_stops.length === 0) {
             const fetchStops = async () => {
@@ -192,14 +231,15 @@ export function NegotiationModal({ request, driverLocation, onClose, onAccept }:
                         <div className="flex items-center gap-1.5 bg-emerald-500/20 text-emerald-400 px-3 py-1.5 rounded-full">
                             <CheckCircle className="w-4 h-4" />
                             <span className="text-sm font-semibold capitalize">
-                                {request.service_type === 'taxi' ? 'Económico' : 'Mandadito'}
+                                {request.service_type === 'taxi' ? 'Taxi' : request.service_type === 'moto_ride' ? 'Moto Ride' : 'Mandadito'}
                             </span>
                         </div>
                         <div className="flex items-center gap-1 text-slate-400 text-xs">
                             <Clock className="w-3 h-3" />
                             <CountdownTimer
                                 createdAt={request.created_at}
-                                expiresAt={request.request_expires_at}
+                                expiresAt={freshExpiresAt || request.request_expires_at}
+                                onExpire={onClose}
                             />
                         </div>
                     </div>
@@ -217,7 +257,8 @@ export function NegotiationModal({ request, driverLocation, onClose, onAccept }:
                 </div>
 
                 {/* Conditional Layout based on service type */}
-                {request.service_type === 'taxi' ? (
+                {/* TAXI and MOTO RIDE: Show origin/destination timeline */}
+                {(request.service_type === 'taxi' || request.service_type === 'moto_ride') ? (
                     /* TAXI: Timeline Route */
                     <div className="space-y-0 pl-2">
                         {/* Driver Position */}
@@ -236,8 +277,16 @@ export function NegotiationModal({ request, driverLocation, onClose, onAccept }:
                             </div>
                         )}
 
-                        {/* Pickup Point */}
-                        <div className="flex items-start gap-3 relative">
+                        {/* Pickup Point - Clickable */}
+                        <div
+                            className="flex items-start gap-3 relative cursor-pointer active:scale-[0.98] transition-transform"
+                            onClick={() => {
+                                if (request.origin_lat && request.origin_lng) {
+                                    setMapLocation({ lat: request.origin_lat, lng: request.origin_lng });
+                                    setShowMap(true);
+                                }
+                            }}
+                        >
                             <div className="flex flex-col items-center">
                                 <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center mb-1 z-10 bg-slate-900">
                                     <div className="w-4 h-4 rounded-full bg-emerald-500 shadow-lg shadow-emerald-500/50" />
@@ -245,12 +294,19 @@ export function NegotiationModal({ request, driverLocation, onClose, onAccept }:
                                 <div className="w-0.5 h-full min-h-[48px] bg-gradient-to-b from-emerald-500 to-red-500 absolute top-8 left-4 -translate-x-1/2" />
                             </div>
                             <div className="flex-1 pb-4">
-                                <div className="flex items-center gap-2 mb-1">
-                                    <span className="text-emerald-400 text-xs font-bold uppercase tracking-wider">RECOGER </span>
-                                    <span className="text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded text-xs">
-                                        {etaToClient > 0 ? `a ${etaToClient} min` : ''}
-                                        {distanceToClient > 0 ? ` (${distanceToClient.toFixed(1)} km)` : ''}
-                                    </span>
+                                <div className="flex items-center justify-between mb-1">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-emerald-400 text-xs font-bold uppercase tracking-wider">RECOGER </span>
+                                        <span className="text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded text-xs">
+                                            {etaToClient > 0 ? `a ${etaToClient} min` : ''}
+                                            {distanceToClient > 0 ? ` (${distanceToClient.toFixed(1)} km)` : ''}
+                                        </span>
+                                    </div>
+                                    {request.origin_lat && request.origin_lng && (
+                                        <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-500/30">
+                                            Ver mapa
+                                        </span>
+                                    )}
                                 </div>
                                 <p className="text-white font-semibold text-lg">{originName}</p>
                                 {request.origin_references && (
@@ -261,20 +317,35 @@ export function NegotiationModal({ request, driverLocation, onClose, onAccept }:
                             </div>
                         </div>
 
-                        {/* Destination Point */}
-                        <div className="flex items-start gap-3">
+                        {/* Destination Point - Clickable */}
+                        <div
+                            className="flex items-start gap-3 cursor-pointer active:scale-[0.98] transition-transform"
+                            onClick={() => {
+                                if (request.destination_lat && request.destination_lng) {
+                                    setMapLocation({ lat: request.destination_lat, lng: request.destination_lng });
+                                    setShowMap(true);
+                                }
+                            }}
+                        >
                             <div className="flex flex-col items-center">
                                 <div className="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center z-10 bg-slate-900">
                                     <div className="w-4 h-4 rounded-full bg-red-500 shadow-lg shadow-red-500/50" />
                                 </div>
                             </div>
                             <div className="flex-1">
-                                <div className="flex items-center gap-2 mb-1">
-                                    <span className="text-red-400 text-xs font-bold uppercase tracking-wider">LLEVAR A</span>
-                                    <span className="text-red-400 font-bold bg-red-500/10 px-2 py-0.5 rounded text-xs">
-                                        {tripETA > 0 ? `${tripETA} min` : ''}
-                                        {tripDistance > 0 ? ` (${tripDistance.toFixed(1)} km)` : ''}
-                                    </span>
+                                <div className="flex items-center justify-between mb-1">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-red-400 text-xs font-bold uppercase tracking-wider">LLEVAR A</span>
+                                        <span className="text-red-400 font-bold bg-red-500/10 px-2 py-0.5 rounded text-xs">
+                                            {tripETA > 0 ? `${tripETA} min` : ''}
+                                            {tripDistance > 0 ? ` (${tripDistance.toFixed(1)} km)` : ''}
+                                        </span>
+                                    </div>
+                                    {request.destination_lat && request.destination_lng && (
+                                        <span className="text-[10px] bg-red-500/20 text-red-300 px-2 py-0.5 rounded-full border border-red-500/30">
+                                            Ver mapa
+                                        </span>
+                                    )}
                                 </div>
                                 <p className="text-white font-semibold text-lg">{destName}</p>
                                 {request.destination_references && (
@@ -285,7 +356,7 @@ export function NegotiationModal({ request, driverLocation, onClose, onAccept }:
                             </div>
                         </div>
                     </div>
-                ) : (
+                ) : request.service_type === 'mandadito' ? (
                     /* MANDADITO: Shopping List */
                     <div className="space-y-4">
                         {/* Shopping Stops Section */}
@@ -373,7 +444,7 @@ export function NegotiationModal({ request, driverLocation, onClose, onAccept }:
                             )}
                         </div>
                     </div>
-                )}
+                ) : null}
 
                 {/* Client Notes - Only for taxi */}
                 {request.notes && request.service_type === 'taxi' && (
@@ -434,23 +505,35 @@ export function NegotiationModal({ request, driverLocation, onClose, onAccept }:
                 </div>
 
                 {/* Action Buttons - Mobile Optimized */}
+                {/* Left: Enviar Oferta (for counter-offers), Right: Aceptar (for accepting client's price) */}
                 <div className="mt-6 flex gap-3">
+                    {/* Enviar Oferta - Only enabled when amount differs from client price */}
                     <Button
-                        className="flex-1 h-12 rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white font-semibold text-sm shadow-lg"
+                        className={`flex-1 h-12 rounded-xl font-semibold text-sm shadow-lg ${parseInt(offerAmount, 10) !== displayPrice
+                            ? 'bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white'
+                            : 'bg-slate-700 text-slate-400 cursor-not-allowed'
+                            }`}
+                        disabled={parseInt(offerAmount, 10) === displayPrice}
+                        onClick={() => onAccept(request, parseInt(offerAmount, 10) || 0)}
+                    >
+                        <DollarSign className="h-4 w-4 mr-1.5 flex-shrink-0" />
+                        Ofertar ${offerAmount || 0}
+                    </Button>
+
+                    {/* Aceptar - Only enabled when amount matches client price */}
+                    <Button
+                        className={`flex-1 h-12 rounded-xl font-semibold text-sm shadow-lg ${parseInt(offerAmount, 10) === displayPrice
+                            ? 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white'
+                            : 'bg-slate-700 text-slate-400 cursor-not-allowed'
+                            }`}
+                        disabled={parseInt(offerAmount, 10) !== displayPrice}
                         onClick={() => {
-                            // Explicitly pass displayPrice to avoid fallback to taxi default ($35)
+                            // Only accept at client's original price
                             onAccept(request, displayPrice);
                         }}
                     >
                         <CheckCircle className="h-4 w-4 mr-1.5 flex-shrink-0" />
                         Aceptar ${displayPrice}
-                    </Button>
-                    <Button
-                        className="flex-1 h-12 rounded-xl bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-semibold text-sm shadow-lg"
-                        onClick={() => onAccept(request, parseInt(offerAmount, 10) || 0)}
-                    >
-                        <DollarSign className="h-4 w-4 mr-1.5 flex-shrink-0" />
-                        Enviar Oferta
                     </Button>
                 </div>
             </div>

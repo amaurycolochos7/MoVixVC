@@ -15,21 +15,28 @@ interface RequestCardProps {
 }
 
 export function RequestCard({ request, driverLocation, onCardClick, onOffer, onAccept, onShowMap }: RequestCardProps) {
-    // Countdown timer for expiration
-    const [secondsRemaining, setSecondsRemaining] = useState(() => {
-        if (request.request_expires_at) {
-            const remaining = Math.max(0, Math.floor((new Date(request.request_expires_at).getTime() - Date.now()) / 1000));
-            return remaining;
-        }
-        return 0;
-    });
+    // Countdown timer for expiration - synced with client timer
+    const [secondsRemaining, setSecondsRemaining] = useState<number>(0);
 
     useEffect(() => {
         if (!request.request_expires_at) return;
 
+        // Calculate remaining time using same logic as client
+        const calculateRemaining = () => {
+            const now = Date.now();
+            const expires = new Date(request.request_expires_at).getTime();
+            const diff = expires - now;
+            return diff > 0 ? Math.ceil(diff / 1000) : 0;
+        };
+
+        // Set initial value
+        setSecondsRemaining(calculateRemaining());
+
+        // Update every second
         const timer = setInterval(() => {
-            const remaining = Math.max(0, Math.floor((new Date(request.request_expires_at).getTime() - Date.now()) / 1000));
+            const remaining = calculateRemaining();
             setSecondsRemaining(remaining);
+            if (remaining <= 0) clearInterval(timer);
         }, 1000);
 
         return () => clearInterval(timer);
@@ -60,14 +67,19 @@ export function RequestCard({ request, driverLocation, onCardClick, onOffer, onA
                         </span>
                     </div>
 
-                    {/* Timer */}
+                    {/* Timer - matches client format */}
                     {secondsRemaining > 0 && (
                         <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full font-bold text-xs ${secondsRemaining <= 10
                             ? 'bg-red-500/40 text-white'
                             : 'bg-white/20 text-white'
                             }`}>
                             <Timer className="w-3 h-3" />
-                            <span>{secondsRemaining}s</span>
+                            <span>
+                                {secondsRemaining >= 60
+                                    ? `${Math.floor(secondsRemaining / 60)}:${(secondsRemaining % 60).toString().padStart(2, '0')}`
+                                    : `${secondsRemaining}s`
+                                }
+                            </span>
                         </div>
                     )}
                 </div>

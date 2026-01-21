@@ -167,8 +167,8 @@ export function ClientTrackingMap({
     const displayPosition = isValidCoords(animatedDriver.position) ? animatedDriver.position : (isValidCoords(pickupLocation) ? pickupLocation : DEFAULT_CENTER);
     const centerPosition = isValidCoords(pickupLocation) ? pickupLocation : DEFAULT_CENTER;
 
-    // Choose icon based on service type
-    const VehicleIcon = serviceType === 'mandadito' ? MotoIcon : CarIcon;
+    // Choose icon based on service type (moto for mandadito and moto_ride, car for taxi)
+    const VehicleIcon = (serviceType === 'mandadito' || serviceType === 'moto_ride') ? MotoIcon : CarIcon;
 
     return (
         <div className={`${className} relative`}>
@@ -226,27 +226,37 @@ export function ClientTrackingMap({
                         anchor="center"
                         rotation={animatedDriver.bearing}
                     >
-                        <div className="relative">
-                            {/* Vehicle Icon with shadow - Moto or Car */}
-                            <div className="drop-shadow-lg">
+                        {/* Use branded Moto Ride icon for moto services, SVG for taxi */}
+                        {(serviceType === 'moto_ride' || serviceType === 'mandadito') ? (
+                            <div className="relative">
+                                {/* Glowing pulse effect */}
+                                <div className="absolute inset-0 w-12 h-12 rounded-full bg-orange-400/30 animate-ping" style={{ animationDuration: '2s' }} />
+                                {/* Main icon container */}
+                                <div className="relative w-12 h-12 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 shadow-lg flex items-center justify-center border-2 border-white">
+                                    <img
+                                        src="/moto-ride.png"
+                                        alt="Moto Ride"
+                                        className="w-8 h-8 object-contain"
+                                    />
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="relative drop-shadow-lg">
                                 <img src={VehicleIcon.src} alt="" className="w-10 h-10" />
                             </div>
-                        </div>
+                        )}
                     </Marker>
                 )}
             </Map>
 
-            {/* Follow button - FAB Style */}
+            {/* Recenter button */}
             <div className="absolute top-4 right-4 z-10">
                 <Button
                     size="icon"
-                    className={`rounded-full w-10 h-10 shadow-md transition-all ${followCamera.isFollowing
-                        ? "bg-blue-600 hover:bg-blue-700 text-white"
-                        : "bg-white hover:bg-gray-50 text-gray-700 border border-gray-200"
-                        }`}
-                    onClick={followCamera.toggleFollow}
+                    className="rounded-full w-10 h-10 shadow-md transition-all bg-white hover:bg-gray-50 text-orange-600 border-2 border-orange-200"
+                    onClick={followCamera.recenter}
                 >
-                    <Crosshair className={`w-4 h-4 ${followCamera.isFollowing ? "animate-pulse" : ""}`} />
+                    <Crosshair className="w-4 h-4" />
                 </Button>
             </div>
 

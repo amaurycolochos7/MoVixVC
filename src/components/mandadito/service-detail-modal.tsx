@@ -46,7 +46,8 @@ interface ServiceDetailModalProps {
     onClose: () => void;
 }
 
-const COMMISSION = 3;
+// Moto Ride pricing: $5 app commission, driver gets $20, total $25
+const COMMISSION = 5;
 
 export function ServiceDetailModal({ serviceId, onClose }: ServiceDetailModalProps) {
     const supabase = createClient();
@@ -243,7 +244,7 @@ export function ServiceDetailModal({ serviceId, onClose }: ServiceDetailModalPro
                                         <div className="space-y-2">
                                             <div className="flex justify-between items-center">
                                                 <span className="text-slate-700">Servicio de mandadito</span>
-                                                <span className="font-semibold text-slate-900">${(service.service_fee || 28).toFixed(2)}</span>
+                                                <span className="font-semibold text-slate-900">${(service.service_fee || 25).toFixed(2)}</span>
                                             </div>
                                             {(service.total_shopping_cost || 0) > 0 && (
                                                 <div className="flex justify-between items-center">
@@ -255,7 +256,7 @@ export function ServiceDetailModal({ serviceId, onClose }: ServiceDetailModalPro
                                             <div className="flex justify-between items-center">
                                                 <span className="font-bold text-slate-900">Total cobrado</span>
                                                 <span className="font-bold text-slate-900 text-lg">
-                                                    ${((service.service_fee || 28) + (service.total_shopping_cost || 0)).toFixed(2)}
+                                                    ${((service.service_fee || 25) + (service.total_shopping_cost || 0)).toFixed(2)}
                                                 </span>
                                             </div>
                                         </div>
@@ -269,7 +270,7 @@ export function ServiceDetailModal({ serviceId, onClose }: ServiceDetailModalPro
                                         <div className="space-y-2">
                                             <div className="flex justify-between items-center">
                                                 <span className="text-green-800">Tarifa del servicio</span>
-                                                <span className="font-semibold text-green-900">${(service.service_fee || 28).toFixed(2)}</span>
+                                                <span className="font-semibold text-green-900">${(service.service_fee || 25).toFixed(2)}</span>
                                             </div>
                                             <div className="flex justify-between items-center text-amber-700">
                                                 <span>Comisión plataforma</span>
@@ -278,7 +279,7 @@ export function ServiceDetailModal({ serviceId, onClose }: ServiceDetailModalPro
                                             <div className="h-px bg-green-400 my-1"></div>
                                             <div className="flex justify-between items-center bg-green-600 -mx-4 -mb-4 px-4 py-3 rounded-b-lg">
                                                 <span className="font-bold text-white text-lg">GANANCIA NETA</span>
-                                                <span className="font-bold text-white text-2xl">${((service.service_fee || 28) - COMMISSION).toFixed(2)}</span>
+                                                <span className="font-bold text-white text-2xl">${((service.service_fee || 25) - COMMISSION).toFixed(2)}</span>
                                             </div>
                                         </div>
                                     </div>

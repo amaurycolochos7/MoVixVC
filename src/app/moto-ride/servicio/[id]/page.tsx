@@ -16,14 +16,12 @@ import { DriverNavigationMap } from "@/components/maps/driver-navigation-map";
 import { BoardingPinModal } from "@/components/driver/boarding-pin-modal";
 import { cn } from "@/lib/utils";
 
-// Tracking steps for Moto Ride (simplified like taxi)
+// Tracking steps for Moto Ride - Simplified flow (3 steps)
+// The payment modal opens directly from the last action button
 const TRACKING_STEPS = [
-    { id: "accepted", label: "Aceptado", actionLabel: "Salir hacia el cliente", icon: CheckCircle },
-    { id: "on_the_way", label: "En camino", actionLabel: "Ya llegué al cliente", icon: Bike },
-    { id: "nearby", label: "Cerca", actionLabel: "Confirmar llegada", icon: MapPin },
-    { id: "arrived", label: "Llegó", actionLabel: "Cliente a bordo", icon: MapPin },
-    { id: "picked_up", label: "En viaje", actionLabel: "Llegando al destino", icon: User },
-    { id: "in_transit", label: "Llegando", actionLabel: "Finalizar viaje", icon: Navigation },
+    { id: "on_the_way", label: "En camino al cliente", actionLabel: "Llegué al punto", icon: Bike },
+    { id: "arrived", label: "Esperando cliente", actionLabel: "Iniciar viaje", icon: MapPin },
+    { id: "picked_up", label: "Viaje en curso", actionLabel: "Cobrar y finalizar", icon: User },
 ];
 
 const CANCELLATION_REASONS = [
@@ -85,6 +83,7 @@ export default function MotoRideServicePage() {
     const [cancelling, setCancelling] = useState(false);
     const [updatingStep, setUpdatingStep] = useState(false);
     const [isSheetExpanded, setIsSheetExpanded] = useState(false);
+    const [notifiedWaiting, setNotifiedWaiting] = useState(false);
 
     // Route metrics
     const [routeMetrics, setRouteMetrics] = useState({ eta: 0, distance: 0, isOffRoute: false });
@@ -120,6 +119,43 @@ export default function MotoRideServicePage() {
             setIsSheetExpanded(false);
         }
     }, [request?.tracking_step]);
+
+    // Auto-detect proximity to pickup location
+    // When driver is within 100m, auto-advance to "arrived" step
+    useEffect(() => {
+        if (!currentPosition || !request) return;
+        if (request.tracking_step !== 'on_the_way') return; // Only check during "on_the_way" phase
+
+        const pickupLat = request.origin_lat;
+        const pickupLng = request.origin_lng;
+
+        // Calculate distance using Haversine formula
+        const R = 6371e3; // Earth radius in meters
+        const φ1 = currentPosition.lat * Math.PI / 180;
+        const φ2 = pickupLat * Math.PI / 180;
+        const Δφ = (pickupLat - currentPosition.lat) * Math.PI / 180;
+        const Δλ = (pickupLng - currentPosition.lng) * Math.PI / 180;
+
+        const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+            Math.cos(φ1) * Math.cos(φ2) *
+            Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        const distance = R * c; // Distance in meters
+
+        console.log(`📍 Distance to pickup: ${distance.toFixed(0)}m`);
+
+        // If within 100 meters, auto-advance to "arrived"
+        if (distance <= 100) {
+            console.log("✅ Auto-advancing to 'arrived' - driver is close");
+            supabase.from("service_requests")
+                .update({ tracking_step: 'arrived' })
+                .eq("id", requestId)
+                .then(() => {
+                    toast.success("¡Llegaste! Esperando al cliente...");
+                    fetchRequest();
+                });
+        }
+    }, [currentPosition, request?.tracking_step, request?.origin_lat, request?.origin_lng]);
 
     const fetchRequest = async () => {
         try {
@@ -219,6 +255,24 @@ export default function MotoRideServicePage() {
         }
     };
 
+    // Notify client that driver has arrived and is waiting
+    const handleNotifyWaiting = async () => {
+        if (!request || notifiedWaiting) return;
+        try {
+            // Update the request with a "driver_waiting" flag
+            await supabase.from("service_requests").update({
+                driver_waiting_at: new Date().toISOString(),
+                notes: `${request.notes || ''} [Conductor esperando afuera]`
+            }).eq("id", requestId);
+
+            setNotifiedWaiting(true);
+            toast.success("✅ Cliente notificado - Estás esperando afuera");
+            fetchRequest();
+        } catch (err) {
+            toast.error("Error al notificar");
+        }
+    };
+
     const handleCompleteTrip = async () => {
         if (!request) return;
         setCompleting(true);
@@ -313,7 +367,8 @@ export default function MotoRideServicePage() {
 
     const isPickupPhase = currentStepIndex < 4;
     const address = isPickupPhase ? request.origin_address : request.destination_address;
-    const fare = request.final_price || request.estimated_price || 20;
+    // Moto Ride pricing: $25 total ($20 driver + $5 app)
+    const fare = request.final_price || request.estimated_price || 25;
 
     return (
         <div className="relative h-[100dvh] w-full overflow-hidden bg-gray-100 flex flex-col">
@@ -428,14 +483,6 @@ export default function MotoRideServicePage() {
                                 {address}
                             </p>
                         </div>
-
-                        {/* Navigation FAB */}
-                        <Button
-                            className="w-12 h-12 rounded-full shadow-lg bg-orange-500 hover:bg-orange-600 shrink-0 mb-1"
-                            onClick={openMapsNavigation}
-                        >
-                            <Navigation className="w-5 h-5 text-white" />
-                        </Button>
                     </div>
 
                     <div className="h-px bg-gray-100 w-full mb-4" />
@@ -443,19 +490,45 @@ export default function MotoRideServicePage() {
                     {/* Expanded Content */}
                     <div className={cn("space-y-4 transition-opacity duration-300", isSheetExpanded ? "opacity-100" : "opacity-0 hidden")}>
 
-                        {/* INICIAR VIAJE CON PIN - Before in_progress */}
-                        {request.status !== 'in_progress' && request.status !== 'completed' && (
-                            <Button
-                                className="w-full h-16 text-lg font-bold shadow-lg bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-xl border-2 border-orange-400/30"
-                                onClick={() => setShowPinModal(true)}
-                            >
-                                <Shield className="w-6 h-6 mr-3" />
-                                INICIAR VIAJE CON CLIENTE
-                            </Button>
+                        {/* INICIAR VIAJE CON PIN - Only shown when at 'arrived' step (waiting for client) */}
+                        {request.tracking_step === 'arrived' && request.status !== 'in_progress' && (
+                            <>
+                                <Button
+                                    className="w-full h-16 text-lg font-bold shadow-lg bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-xl border-2 border-orange-400/30"
+                                    onClick={() => setShowPinModal(true)}
+                                >
+                                    <Shield className="w-6 h-6 mr-3" />
+                                    INICIAR VIAJE CON PIN
+                                </Button>
+
+                                {/* Notify client button */}
+                                <Button
+                                    className={cn(
+                                        "w-full h-12 text-base font-semibold rounded-xl",
+                                        notifiedWaiting
+                                            ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                                            : "bg-black text-white hover:bg-gray-800"
+                                    )}
+                                    onClick={handleNotifyWaiting}
+                                    disabled={notifiedWaiting}
+                                >
+                                    {notifiedWaiting ? (
+                                        <>
+                                            <CheckCircle className="w-5 h-5 mr-2" />
+                                            Cliente notificado
+                                        </>
+                                    ) : (
+                                        <>
+                                            <MapPin className="w-5 h-5 mr-2" />
+                                            Ya llegué - Estoy afuera
+                                        </>
+                                    )}
+                                </Button>
+                            </>
                         )}
 
-                        {/* Action Primary Button */}
-                        {!isLastStep ? (
+                        {/* Action Primary Button - Hidden when at 'arrived' step (must use PIN instead) */}
+                        {request.tracking_step !== 'arrived' && !isLastStep ? (
                             <Button
                                 className="w-full h-14 text-lg font-bold shadow-md bg-black text-white hover:bg-gray-800 rounded-xl"
                                 onClick={handleNextStep}
@@ -464,14 +537,15 @@ export default function MotoRideServicePage() {
                                 {updatingStep ? <Loader2 className="mr-2 animate-spin" /> : null}
                                 {nextStep?.actionLabel || "Continuar"}
                             </Button>
-                        ) : (
+                        ) : isLastStep ? (
                             <Button
-                                className="w-full h-14 text-lg font-bold shadow-md bg-green-600 hover:bg-green-700 rounded-xl"
+                                className="w-full h-14 text-lg font-bold shadow-md bg-black hover:bg-gray-800 text-white rounded-xl"
                                 onClick={() => setShowPaymentModal(true)}
                             >
-                                Cobrar ${fare}
+                                <DollarSign className="w-5 h-5 mr-2" />
+                                Finalizar y cobrar ${fare}
                             </Button>
-                        )}
+                        ) : null}
 
                         {/* Secondary Actions */}
                         <div className="grid grid-cols-2 gap-3">
@@ -492,10 +566,24 @@ export default function MotoRideServicePage() {
                             </Button>
                         </div>
 
-                        {/* Fare Info */}
-                        <div className="flex justify-between items-center bg-orange-50 p-3 rounded-lg">
-                            <span className="text-sm font-medium text-gray-500">Tarifa del servicio</span>
-                            <span className="text-lg font-bold text-orange-600">${fare}</span>
+                        {/* Fare Breakdown Card - Same as client view */}
+                        <div className="bg-orange-50 rounded-xl p-4 border border-orange-100">
+                            <div className="space-y-2">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-gray-600 text-sm">Tarifa del servicio</span>
+                                    <span className="text-gray-800 font-medium">${(fare - 5).toFixed(2)}</span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-gray-500 text-xs">Comisión de la app</span>
+                                    <span className="text-gray-500 text-xs">$5.00</span>
+                                </div>
+                                <div className="border-t border-orange-200 pt-2 mt-2">
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-orange-700 font-semibold">Total a cobrar</span>
+                                        <span className="text-orange-600 font-bold text-xl">${fare.toFixed(2)}</span>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -591,6 +679,7 @@ export default function MotoRideServicePage() {
                 open={showPinModal}
                 onClose={() => setShowPinModal(false)}
                 onValidate={handleValidatePin}
+                pinLength={3}
             />
 
         </div>

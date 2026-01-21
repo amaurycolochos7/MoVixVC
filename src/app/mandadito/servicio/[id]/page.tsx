@@ -424,7 +424,8 @@ export default function MandaditoServicePage() {
         return acc + stopTotal;
     }, 0);
 
-    const serviceFee = request.service_fee || 28;
+    // Service fee: $20 for driver + $5 app commission = $25 total
+    const serviceFee = request.service_fee || 25;
     const grandTotal = totalExpenses + serviceFee;
 
     // Check if any products have been purchased

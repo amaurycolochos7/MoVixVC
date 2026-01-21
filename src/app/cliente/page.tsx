@@ -101,7 +101,7 @@ export default function ClienteHomePage() {
                     {/* Taxi Card - PAUSADO */}
                     <div className="relative">
                         <div className="bg-white rounded-2xl p-3 shadow-md opacity-60 grayscale cursor-not-allowed">
-                            <div className="h-20 flex items-center justify-center mb-2">
+                            <div className="h-24 flex items-center justify-center mb-2">
                                 <img src="/taxi.png" alt="Taxi" className="h-full object-contain" />
                             </div>
                             <div className="text-center">
@@ -123,11 +123,11 @@ export default function ClienteHomePage() {
                     {/* Mandadito Card */}
                     <Link href="/cliente/mandadito">
                         <div className="bg-white rounded-2xl p-3 shadow-md hover:shadow-lg transition-shadow">
-                            <div className="h-20 flex items-center justify-center mb-2">
+                            <div className="h-24 flex items-center justify-center mb-2">
                                 <img src="/delivery-moto.png" alt="Mandadito" className="h-full object-contain" />
                             </div>
                             <div className="text-center">
-                                <h3 className="font-bold text-gray-900 text-sm">Mandadito</h3>
+                                <h3 className="font-bold text-orange-600 text-sm">Mandadito</h3>
                                 <p className="text-gray-500 text-[10px]">Envíos y compras</p>
                             </div>
                         </div>
@@ -136,7 +136,7 @@ export default function ClienteHomePage() {
                     {/* Moto Ride Card */}
                     <Link href="/cliente/moto-ride">
                         <div className="bg-white rounded-2xl p-3 shadow-md hover:shadow-lg transition-shadow">
-                            <div className="h-20 flex items-center justify-center mb-2">
+                            <div className="h-24 flex items-center justify-center mb-2">
                                 <img src="/moto-ride.png" alt="Moto Ride" className="h-full object-contain" />
                             </div>
                             <div className="text-center">

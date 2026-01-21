@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Loader2, Package, CheckCircle, Circle, MapPin, Phone, Navigation, ShoppingBag, X, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
@@ -48,6 +48,7 @@ export function MandaditoClientTracking({ requestId, request, driver, vehicle }:
     const [loading, setLoading] = useState(true);
     const [showCancelModal, setShowCancelModal] = useState(false);
     const [cancelling, setCancelling] = useState(false);
+    const [hasRedirected, setHasRedirected] = useState(false);
 
     // Determine if this is a moto_ride service
     const isMotoRide = request.service_type === 'moto_ride';
@@ -116,7 +117,10 @@ export function MandaditoClientTracking({ requestId, request, driver, vehicle }:
                     if (payload.new.status === 'in_progress') {
                         toast.success("¡El mandadito va en camino a tu domicilio!");
                     } else if (payload.new.status === 'completed') {
-                        toast.success("¡Servicio completado! Gracias por tu compra 🎉", {
+                        const msg = isMotoRide
+                            ? "¡Viaje completado! Gracias por viajar con nosotros 🏍️"
+                            : "¡Servicio completado! Gracias por tu compra 🎉";
+                        toast.success(msg, {
                             duration: 3000,
                         });
                         setTimeout(() => {
@@ -146,6 +150,24 @@ export function MandaditoClientTracking({ requestId, request, driver, vehicle }:
         };
     }, [requestId]);
 
+    // Handle completed status with proper redirect - MUST be before any conditional returns
+    useEffect(() => {
+        if (request.status === 'completed' && !hasRedirected) {
+            setHasRedirected(true);
+            const msg = isMotoRide
+                ? "¡Viaje completado! Gracias por viajar con nosotros 🏍️"
+                : "¡Servicio completado! Gracias por tu compra 🎉";
+            toast.success(msg, { duration: 2000 });
+
+            // Force hard redirect after 2 seconds - more reliable than router.push
+            const timer = setTimeout(() => {
+                window.location.replace('/cliente');
+            }, 2000);
+
+            return () => clearTimeout(timer);
+        }
+    }, [request.status, hasRedirected, isMotoRide]);
+
     // Cancel service handler - Uses RPC to properly free driver
     const handleCancelService = async () => {
         setCancelling(true);
@@ -172,26 +194,41 @@ export function MandaditoClientTracking({ requestId, request, driver, vehicle }:
         }
     };
 
-    if (loading) {
+    // If completed, redirect immediately
+    if (request.status === 'completed') {
+        // Force immediate redirect
+        if (!hasRedirected) {
+            setHasRedirected(true);
+            setTimeout(() => {
+                window.location.href = '/cliente';
+            }, 1500);
+        }
+
         return (
             <div className="flex items-center justify-center h-screen bg-white">
-                <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+                <div className="text-center px-6">
+                    <CheckCircle className="h-16 w-16 text-green-400 mx-auto mb-4" />
+                    <h1 className="text-2xl font-bold text-gray-900 mb-2">
+                        {isMotoRide ? "¡Viaje Completado!" : "¡Servicio Completado!"}
+                    </h1>
+                    <p className="text-gray-600 mb-6">
+                        {isMotoRide ? "Gracias por viajar con nosotros 🏍️" : "Gracias por tu compra 🎉"}
+                    </p>
+                    <Button
+                        onClick={() => window.location.href = '/cliente'}
+                        className="w-full h-12 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-xl"
+                    >
+                        Volver al inicio
+                    </Button>
+                </div>
             </div>
         );
     }
 
-    if (request.status === 'completed') {
-        toast.success("¡Servicio completado! Redirigiendo...", { duration: 2000 });
-        setTimeout(() => {
-            window.location.href = '/cliente';
-        }, 2000);
+    if (loading) {
         return (
             <div className="flex items-center justify-center h-screen bg-white">
-                <div className="text-center">
-                    <CheckCircle className="h-16 w-16 text-green-400 mx-auto mb-4" />
-                    <h1 className="text-2xl font-bold text-gray-900 mb-2">¡Servicio Completado!</h1>
-                    <p className="text-gray-600">Gracias por tu compra 🎉</p>
-                </div>
+                <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
             </div>
         );
     }
@@ -204,7 +241,8 @@ export function MandaditoClientTracking({ requestId, request, driver, vehicle }:
         return acc + stopTotal;
     }, 0);
 
-    const serviceFee = request.service_fee || 28;
+    // Moto Ride pricing: $20 for driver + $5 app commission = $25 total
+    const serviceFee = request.service_fee || 25;
     const grandTotal = totalExpenses + serviceFee;
 
     // Check if any products have been marked as purchased
@@ -240,7 +278,37 @@ export function MandaditoClientTracking({ requestId, request, driver, vehicle }:
         );
     }
 
-    // Shopping phase UI (status = 'assigned')
+    // For Moto Ride: Show real-time map view like Taxi (status = 'assigned')
+    if (isMotoRide) {
+        const pickupLocation = {
+            lat: request.origin_lat || 0,
+            lng: request.origin_lng || 0
+        };
+        const dropoffLocation = {
+            lat: request.destination_lat || 0,
+            lng: request.destination_lng || 0
+        };
+
+        return (
+            <MotoRideClientTrackingView
+                requestId={requestId}
+                request={request}
+                driver={driver}
+                vehicle={vehicle}
+                pickupLocation={pickupLocation}
+                dropoffLocation={dropoffLocation}
+                serviceFee={serviceFee}
+                canCancel={canCancel}
+                onCancel={() => setShowCancelModal(true)}
+                showCancelModal={showCancelModal}
+                setShowCancelModal={setShowCancelModal}
+                handleCancelService={handleCancelService}
+                cancelling={cancelling}
+            />
+        );
+    }
+
+    // Mandadito Shopping phase UI (status = 'assigned')
     return (
         <div className="min-h-screen bg-gray-50 pb-24">
             {/* Header */}
@@ -252,17 +320,11 @@ export function MandaditoClientTracking({ requestId, request, driver, vehicle }:
                         </div>
                         <div>
                             <h1 className="font-bold text-white">
-                                {isMotoRide ? 'Moto Ride' : (request.mandadito_type === 'shopping' ? 'Compras' : 'Mandadito')}
+                                {request.mandadito_type === 'shopping' ? 'Compras' : 'Mandadito'}
                             </h1>
                             <p className="text-orange-100 text-xs">
-                                {driver?.full_name || (isMotoRide ? 'Conductor asignado' : 'Mandadito asignado')}
+                                {driver?.full_name || 'Mandadito asignado'}
                             </p>
-                            {/* Show vehicle info for moto_ride */}
-                            {isMotoRide && vehicle && (
-                                <p className="text-white/80 text-xs mt-0.5">
-                                    🏍️ {vehicle.brand} {vehicle.model} • {vehicle.color}
-                                </p>
-                            )}
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -531,6 +593,320 @@ function MandaditoDeliveryView({
                     </div>
                 )}
             </div>
+        </div>
+    );
+}
+
+// Moto Ride Real-time Tracking Component (similar to Taxi)
+interface MotoRideClientTrackingViewProps {
+    requestId: string;
+    request: any;
+    driver: any;
+    vehicle?: {
+        brand: string;
+        model: string;
+        color: string;
+    } | null;
+    pickupLocation: { lat: number; lng: number };
+    dropoffLocation: { lat: number; lng: number };
+    serviceFee: number;
+    canCancel: boolean;
+    onCancel: () => void;
+    showCancelModal: boolean;
+    setShowCancelModal: (show: boolean) => void;
+    handleCancelService: () => void;
+    cancelling: boolean;
+}
+
+function MotoRideClientTrackingView({
+    requestId,
+    request,
+    driver,
+    vehicle,
+    pickupLocation,
+    dropoffLocation,
+    serviceFee,
+    canCancel,
+    onCancel,
+    showCancelModal,
+    setShowCancelModal,
+    handleCancelService,
+    cancelling
+}: MotoRideClientTrackingViewProps) {
+    // Track driver location in real-time
+    const { lastLocation, isConnected } = useServiceDriverLocation({ serviceId: requestId });
+
+    // Calculate ETA and distance from driver to pickup/destination
+    const [eta, setEta] = useState<number | null>(null);
+    const [distance, setDistance] = useState<number | null>(null);
+
+    useEffect(() => {
+        if (lastLocation) {
+            const target = request.status === 'in_progress' ? dropoffLocation : pickupLocation;
+
+            // Calculate distance using Haversine formula
+            const R = 6371; // Earth radius in km
+            const dLat = (target.lat - lastLocation.lat) * Math.PI / 180;
+            const dLon = (target.lng - lastLocation.lng) * Math.PI / 180;
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(lastLocation.lat * Math.PI / 180) * Math.cos(target.lat * Math.PI / 180) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            const dist = R * c;
+
+            setDistance(dist);
+            // ETA: assume 25 km/h average speed in urban area
+            setEta(Math.ceil((dist / 25) * 60));
+        }
+    }, [lastLocation, pickupLocation, dropoffLocation, request.status]);
+
+    // Use actual tracking_step from request, fallback to status-based
+    const trackingStep = (request as any).tracking_step ||
+        (request.status === 'in_progress' ? 'in_transit' : 'on_the_way');
+
+    // Show toast notification when tracking step changes
+    const prevTrackingStep = useRef(trackingStep);
+    useEffect(() => {
+        if (prevTrackingStep.current !== trackingStep) {
+            switch (trackingStep) {
+                case 'on_the_way':
+                    toast.info("🏍️ El conductor va en camino");
+                    break;
+                case 'arrived':
+                    toast.success("✅ ¡El conductor llegó! Te está esperando");
+                    break;
+                case 'picked_up':
+                    toast.info("🚀 Viaje en progreso");
+                    break;
+                case 'in_transit':
+                    toast.info("📍 Llegando a tu destino");
+                    break;
+            }
+            prevTrackingStep.current = trackingStep;
+        }
+    }, [trackingStep]);
+
+    // Detect when driver notifies they are waiting outside
+    const prevDriverWaiting = useRef((request as any).driver_waiting_at);
+    useEffect(() => {
+        const driverWaitingAt = (request as any).driver_waiting_at;
+        if (driverWaitingAt && driverWaitingAt !== prevDriverWaiting.current) {
+            // Driver just notified they are waiting
+            toast.success("🏍️ ¡El conductor está afuera esperándote!", {
+                duration: 10000, // Show for 10 seconds
+                style: {
+                    background: '#f97316',
+                    color: 'white',
+                    fontWeight: 'bold',
+                },
+            });
+            prevDriverWaiting.current = driverWaitingAt;
+        }
+    }, [(request as any).driver_waiting_at]);
+
+    // Calculate price breakdown - Fixed $5 app commission for Moto Ride
+    const appCommission = 5; // Fixed $5 commission
+    const driverEarnings = serviceFee - appCommission; // Driver gets the rest ($20 if total is $25)
+
+    // Check if coordinates are valid
+    const hasValidPickup = pickupLocation.lat !== 0 && pickupLocation.lng !== 0;
+    const hasValidDropoff = dropoffLocation.lat !== 0 && dropoffLocation.lng !== 0;
+
+    // Cancellation only allowed when status is 'assigned' (waiting for pickup)
+    const allowCancel = canCancel && request.status === 'assigned';
+
+    // Show if driver is waiting
+    const driverIsWaiting = !!(request as any).driver_waiting_at;
+
+    return (
+        <div className="h-screen flex flex-col bg-white">
+            {/* Map - Takes most of the screen */}
+            <div className="flex-1 relative">
+                {hasValidPickup ? (
+                    <ClientTrackingMap
+                        serviceId={requestId}
+                        pickupLocation={pickupLocation}
+                        dropoffLocation={hasValidDropoff ? dropoffLocation : undefined}
+                        trackingStep={trackingStep}
+                        serviceType="moto_ride"
+                        className="w-full h-full"
+                    />
+                ) : (
+                    <div className="w-full h-full bg-gray-100 flex items-center justify-center">
+                        <Loader2 className="w-8 h-8 text-orange-500 animate-spin" />
+                    </div>
+                )}
+            </div>
+
+            {/* Bottom Sheet - Driver Info & Actions */}
+            <div className="bg-white border-t border-gray-200 shadow-lg shrink-0 z-10" style={{ marginBottom: '64px' }}>
+                {/* Header with Driver Info */}
+                <div className="bg-gradient-to-r from-orange-500 to-orange-600 px-4 py-3">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            {/* Moto Ride Icon */}
+                            <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center overflow-hidden shrink-0">
+                                <img
+                                    src="/moto-ride.png"
+                                    alt="Moto Ride"
+                                    className="w-10 h-10 object-contain"
+                                />
+                            </div>
+                            <div>
+                                <h2 className="text-white font-bold">Moto Ride</h2>
+                                <p className="text-orange-100 text-sm">
+                                    {driver?.full_name || 'Conductor'}
+                                </p>
+                                {vehicle && (
+                                    <p className="text-white/70 text-xs">
+                                        {vehicle.brand} {vehicle.model} • {vehicle.color}
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            {allowCancel && (
+                                <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="text-white/80 hover:text-white hover:bg-white/10 h-8 w-8 p-0"
+                                    onClick={onCancel}
+                                >
+                                    <X className="h-4 w-4" />
+                                </Button>
+                            )}
+                            <Button
+                                size="sm"
+                                className="bg-white text-orange-600 hover:bg-orange-50 h-8 px-3"
+                                onClick={() => window.open(`tel:${driver?.phone}`)}
+                            >
+                                <Phone className="h-4 w-4 mr-1" />
+                                Llamar
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+
+                {/* ETA & Status */}
+                <div className="px-4 py-3">
+                    {/* Status Banner - Show special when driver is waiting */}
+                    {driverIsWaiting && request.status === 'assigned' ? (
+                        <div className="bg-green-500 text-white rounded-xl p-3 mb-3 animate-pulse">
+                            <div className="flex items-center gap-2">
+                                <MapPin className="w-5 h-5" />
+                                <p className="font-bold text-base">
+                                    🏍️ ¡El conductor está afuera esperándote!
+                                </p>
+                            </div>
+                            <p className="text-sm text-green-100 mt-1 ml-7">
+                                Sal a encontrarte con tu conductor
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="flex items-center gap-2 mb-3">
+                            <div className="w-2.5 h-2.5 rounded-full bg-orange-500 animate-pulse" />
+                            <p className="text-gray-700 text-sm font-medium">
+                                {request.status === 'in_progress'
+                                    ? 'Viaje en curso - En camino a tu destino'
+                                    : 'Tu conductor está en camino a recogerte'}
+                            </p>
+                        </div>
+                    )}
+
+                    {/* PIN Card - Only show when waiting for pickup */}
+                    {request.status === 'assigned' && request.boarding_pin && (
+                        <div className="bg-gradient-to-r from-orange-100 to-orange-50 rounded-xl p-4 mb-3 border border-orange-200">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-xs text-orange-600 font-semibold uppercase tracking-wider">
+                                        PIN de Abordaje
+                                    </p>
+                                    <p className="text-2xl font-bold text-orange-600 tracking-widest mt-1">
+                                        {request.boarding_pin}
+                                    </p>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-xs text-gray-600 max-w-[120px]">
+                                        Proporciona este PIN al conductor
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ETA Card */}
+                    <div className="flex items-center justify-between bg-gray-50 rounded-xl p-3 mb-3">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center">
+                                <Navigation className="w-5 h-5 text-orange-600" />
+                            </div>
+                            <div>
+                                <p className="text-xs text-gray-500">Tiempo estimado</p>
+                                <p className="text-orange-600 font-bold text-lg">
+                                    {eta ? `${eta} min` : '~5 min'}
+                                </p>
+                            </div>
+                        </div>
+                        <div className="text-right">
+                            <p className="text-xs text-gray-500">Distancia</p>
+                            <p className="text-gray-700 font-semibold">
+                                {distance ? `${distance.toFixed(1)} km` : '---'}
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Price Breakdown Card */}
+                    <div className="bg-orange-50 rounded-xl p-4 border border-orange-100">
+                        <div className="space-y-2">
+                            <div className="flex justify-between items-center">
+                                <span className="text-gray-600 text-sm">Tarifa del servicio</span>
+                                <span className="text-gray-800 font-medium">${driverEarnings.toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                                <span className="text-gray-500 text-xs">Comisión de la app</span>
+                                <span className="text-gray-500 text-xs">${appCommission.toFixed(2)}</span>
+                            </div>
+                            <div className="border-t border-orange-200 pt-2 mt-2">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-orange-700 font-semibold">Total a pagar</span>
+                                    <span className="text-orange-600 font-bold text-xl">${serviceFee.toFixed(2)}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Cancel Modal */}
+            <Dialog open={showCancelModal} onOpenChange={setShowCancelModal}>
+                <DialogContent className="sm:max-w-md bg-white border-gray-200">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <AlertTriangle className="h-5 w-5 text-red-400" />
+                            ¿Cancelar viaje?
+                        </DialogTitle>
+                        <DialogDescription className="text-gray-600">
+                            Esta acción cancelará tu solicitud de Moto Ride. El conductor será notificado.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="flex gap-3 mt-4">
+                        <Button
+                            variant="outline"
+                            onClick={() => setShowCancelModal(false)}
+                            className="flex-1 border-gray-300 text-gray-700"
+                        >
+                            Volver
+                        </Button>
+                        <Button
+                            onClick={handleCancelService}
+                            disabled={cancelling}
+                            className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+                        >
+                            {cancelling ? <Loader2 className="h-4 w-4 animate-spin" /> : "Sí, cancelar"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

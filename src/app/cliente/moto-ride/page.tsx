@@ -32,7 +32,7 @@ export default function TaxiWizardPage() {
     const [createdRequestId, setCreatedRequestId] = useState<string | null>(null);
 
     // Pricing and route state
-    const [estimatedPrice, setEstimatedPrice] = useState<number>(20);
+    const [estimatedPrice, setEstimatedPrice] = useState<number>(25); // $20 service + $5 commission
     const [routeDistance, setRouteDistance] = useState<number>(0);
     const [routeETA, setRouteETA] = useState<number>(0);
 
@@ -71,7 +71,7 @@ export default function TaxiWizardPage() {
             setRouteDistance(distance);
             const eta = Math.ceil((distance / 30) * 60);
             setRouteETA(eta);
-            setEstimatedPrice(20);
+            setEstimatedPrice(25); // Fixed price: $20 service + $5 app
         };
 
         calculateDistance();
@@ -552,15 +552,15 @@ export default function TaxiWizardPage() {
                             </div>
                         </div>
 
-                        {/* Price Breakdown */}
+                        {/* Price Breakdown - Updated pricing */}
                         <div className="bg-gray-50 rounded-lg p-2 space-y-1 text-sm">
                             <div className="flex justify-between items-center">
                                 <span className="text-gray-600">Costo del servicio</span>
-                                <span className="font-semibold text-gray-900">$17.00</span>
+                                <span className="font-semibold text-gray-900">$20.00</span>
                             </div>
                             <div className="flex justify-between items-center">
                                 <span className="text-gray-600">Comisión de app</span>
-                                <span className="font-semibold text-gray-900">$3.00</span>
+                                <span className="font-semibold text-gray-900">$5.00</span>
                             </div>
                             <div className="border-t border-gray-200 pt-1 flex justify-between items-center">
                                 <span className="font-bold text-gray-900">Total</span>

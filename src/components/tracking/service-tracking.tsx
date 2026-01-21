@@ -14,6 +14,17 @@ interface ServiceTrackingProps {
     initialRequestData?: any;
 }
 
+// Helper to get correct service path based on service type
+function getServicePath(serviceType: string, requestId: string): string {
+    if (serviceType === "moto_ride") {
+        return `/moto-ride/servicio/${requestId}`;
+    } else if (serviceType === "mandadito") {
+        return `/mandadito/servicio/${requestId}`;
+    } else {
+        return `/taxi/servicio/${requestId}`;
+    }
+}
+
 export function ServiceTracking({ requestId, userRole, initialRequestData }: ServiceTrackingProps) {
     const supabase = createClient();
     const router = useRouter();
@@ -40,7 +51,8 @@ export function ServiceTracking({ requestId, userRole, initialRequestData }: Ser
     // Auto-redirect to service page for drivers
     useEffect(() => {
         if (request && userRole === "driver" && request.status !== "completed") {
-            router.push(`/taxi/servicio/${requestId}`);
+            const servicePath = getServicePath(request.service_type, requestId);
+            router.push(servicePath);
         }
     }, [request, userRole, requestId, router]);
 
@@ -101,7 +113,7 @@ export function ServiceTracking({ requestId, userRole, initialRequestData }: Ser
             {userRole === "driver" && (
                 <Button
                     className="w-full h-12"
-                    onClick={() => router.push(`/taxi/servicio/${requestId}`)}
+                    onClick={() => router.push(getServicePath(request.service_type, requestId))}
                 >
                     <ArrowRight className="h-5 w-5 mr-2" />
                     Ir a pantalla de servicio
@@ -110,3 +122,4 @@ export function ServiceTracking({ requestId, userRole, initialRequestData }: Ser
         </div>
     );
 }
+

@@ -13,6 +13,7 @@ import {
     FileText,
     Loader2,
     RefreshCw,
+    MessageCircle,
 } from 'lucide-react';
 
 export function KYCStatus() {
@@ -71,6 +72,19 @@ function PendingStatus({ submittedAt }: { submittedAt: string | null }) {
         })
         : null;
 
+    // Check if more than 24 hours have passed
+    const moreThan24Hours = submittedAt
+        ? (Date.now() - new Date(submittedAt).getTime()) > 24 * 60 * 60 * 1000
+        : false;
+
+    const handleWhatsAppSupport = () => {
+        const phone = '5219618720544';
+        const message = encodeURIComponent(
+            '¡Hola! Soy conductor de MoVix. Han pasado más de 24 horas desde que envié mis documentos para verificación y aún no he recibido respuesta. ¿Podrían revisar mi solicitud?'
+        );
+        window.open(`https://wa.me/${phone}?text=${message}`, '_blank');
+    };
+
     return (
         <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl p-6 text-center">
             <div className="w-16 h-16 bg-yellow-100 dark:bg-yellow-800 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -95,6 +109,22 @@ function PendingStatus({ submittedAt }: { submittedAt: string | null }) {
                     </span>
                 </div>
             </div>
+
+            {/* WhatsApp support button if more than 24 hours */}
+            {moreThan24Hours && (
+                <div className="mt-4 pt-4 border-t border-yellow-200 dark:border-yellow-700">
+                    <p className="text-sm text-yellow-700 dark:text-yellow-300 mb-3">
+                        ¿Han pasado más de 24 horas? Contáctanos para revisar tu solicitud.
+                    </p>
+                    <button
+                        onClick={handleWhatsAppSupport}
+                        className="w-full py-3 px-4 bg-green-500 hover:bg-green-600 text-white rounded-xl font-semibold flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
+                    >
+                        <MessageCircle className="w-5 h-5" />
+                        Contactar a Soporte
+                    </button>
+                </div>
+            )}
         </div>
     );
 }
